@@ -1,0 +1,615 @@
+# Live vulnerability checklist (FULL) — provenance
+
+Copied 2026-09-14 from the peer playbook `github.com/Savage27z/SAVAGEAUD` (CHECKLIST.md, ~50 KB / ~250 items). It is a LIVE document there and must keep growing here: when a pass teaches a new anti-pattern, add it to this file (the per-target table at the bottom) instead of leaving it in a chat log or a commit message.
+
+Read order: the severe-density pass stack in SKILL.md decides WHICH lens you are in; this file decides WHAT to grep for once you are there. The "Added per Target" table at the end holds the real prose lessons.
+
+---
+
+# Vulnerability Checklist
+
+Check every target against this list. Update as new vulnerability angles are discovered.
+
+## ✅ Checked on Every Target
+
+### Access Control
+- [ ] `onlyOwner` / modifiers on every state-changing function
+- [ ] Initializers guarded (can't be front-run or re-called)
+- [ ] Role assignment — can non-admins grant themselves roles?
+- [ ] Proxy admin — who controls upgrades?
+- [ ] Immutability — can the contract be upgraded or parameters changed?
+
+### Reentrancy
+- [ ] ReentrancyGuard on external-facing state-changing functions
+- [ ] CEI (Checks-Effects-Interactions) pattern
+- [ ] Cross-function reentrancy (state read before write)
+- [ ] Read-only reentrancy (view function returns inconsistent state)
+- [ ] Callback tokens (ERC-777/ERC-1363) — can token transfer trigger reentrancy?
+
+### Math & Accounting
+- [ ] Rounding direction — does it favor the user or the protocol?
+- [ ] First-depositor inflation (seed to dead address?)
+- [ ] Donation attacks — can PPS be inflated without minting shares?
+- [ ] Fee-on-transfer / rebasing token compatibility
+- [ ] **Prepaid rounding dust** — when user deposits are divided across rounds/blocks via integer division, is the rounding surplus recoverable by the user? (See MinePea AutoMiner — dust trapped when all rounds execute and `stop()` doesn't refund)
+- [ ] Division by zero guards
+- [ ] Integer overflow (pre-0.8 Solidity)
+- [ ] Share ratio manipulation — can the P/N ratio be skewed?
+
+### Randomness / Oracles
+- [ ] On-chain randomness source (predictable?)
+- [ ] Oracle manipulation (flash loans + spot price)
+- [ ] Stale price data
+- [ ] TWAP manipulation feasibility
+- [ ] **Price deviation checks** — are BOTH directions protected? (one-directional check = vulnerability, see MinePea Treasury)
+- [ ] **Swap price limit** — is there a `sqrtPriceLimit` on swaps? `MIN_SQRT_PRICE + 1` = no effective limit
+- [ ] **Permissionless price-sensitive ops** — can anyone trigger operations that depend on oracle/price data?
+- [ ] **Pin/window mechanisms** — time-bounded operations verified on-chain (call with boundary timestamps to confirm revert behavior)
+- [ ] **Historical price fallback** — does the oracle support `priceAt(timestamp)` for accurate historical data?
+- [ ] **Permissionless oracle game theory** — can a reporter manipulate settlement windows? Can dispute economics be gamed?
+- [ ] **Settlement-by-absence** — what happens if no one disputes within the window? Is there a fallback?
+
+### Upgrades
+- [ ] Storage collision risk
+- [ ] Uninitialized implementation (can it be self-destructed?)
+- [ ] Timelock on upgrade path
+
+### External Calls
+- [ ] Unchecked return values
+- [ ] Arbitrary call targets
+- [ ] Gas exhaustion via external calls
+- [ ] Returndata bomb protection
+- [ ] SafeERC20 used for token transfers
+- [ ] **Raw ETH `.call` in callback functions** — if the callback isn't `nonReentrant`, a `.call{value: X}("")` inside it lets the recipient re-enter the contract before state finalization (see MinePea GridMining `quiverCallback` → `_fulfillRandomness` → `_safeTransferETH(feeCollector, ...)`)
+- [ ] Callback ignored on failure — does settlement depend on callback outcome?
+
+### MEV / Front-running
+- [ ] Slippage protection on user entry points
+- [ ] Deadline/timelock on user actions
+- [ ] Sandwich vulnerability on AMM interactions
+
+### Gambling / Game-Specific
+- [ ] Randomness timing — can outcome be predicted before bet closes?
+- [ ] Round transition — can bets be placed after close?
+- [ ] Winner selection — manipulable weighted selection?
+- [ ] Jackpot triggers — can jackpot be forced or prevented?
+
+### Async Operations (Keeper-Driven)
+- [ ] Two-stage settlement — can a user's funds be stuck between stages?
+- [ ] Keeper griefing — can keeper skip execution to cause losses?
+- [ ] Keeper trust — what can a malicious keeper do within bounds?
+- [ ] Deadline/grace period — what happens after timeout?
+- [ ] **Access-controlled endpoints** — can a non-keeper trigger settlement functions?
+
+### Clone / Factory Systems
+- [ ] Clone initialization — can clones be front-run or self-destructed?
+- [ ] Storage collision between implementation and clone
+- [ ] Factory access control — who can mint new clones?
+
+### Handler / Module Architecture
+- [ ] Handler upgrade path — can a malicious handler be installed?
+- [ ] Cross-handler state consistency
+- [ ] Router/call dispatch — can arbitrary handler calls be injected?
+- [ ] `delegatecall` / `universalCall` paths — can arbitrary code execution be injected?
+
+### Sequencer / Operator Trust
+- [ ] **Single-EOA sequencer key** — can a compromised sequencer drain funds? Can they match orders at manipulated prices?
+- [ ] **Sequencer role separation** — is there a separate key for matching vs settlement vs withdrawal?
+- [ ] **Off-chain matching** — can the sequencer front-run user orders? Can orders be censored?
+
+### General
+- [ ] Keeper dependency — what happens if keeper stops?
+- [ ] Emergency pause — can funds be withdrawn while paused?
+- [ ] Self-destruct / force-feeding risks
+- [ ] Recoverable funds — stuck tokens rescue path
+- [ ] **No-owner / fully permissionless** — verify game theory is sound without admin oversight
+
+### Trust Model (TMAAR) — Macro-inspired
+- [ ] **Actors enumerated** — every role (owner, user, vault manager, resolver, relayer, bridge) documented with trust level
+- [ ] **Assumptions explicit** — every "we assume X" has a "what if X fails?" answer
+- [ ] **Accepted risks documented** — what the protocol says is out of scope (not assumed, said)
+- [ ] **Owner power enumerated** — what exactly can owner do? Timelock? Multisig? Single key?
+- [ ] **Dependency trust** — every external dependency (bridge, oracle, relayer) has documented failure mode
+
+### Bridge / Cross-Chain — Macro-inspired
+- [ ] **Source verification** — bridged tokens verify origin chain and contract (prevent fake token injection — see Sapience C-4)
+- [ ] **CREATE3 salt uniqueness** — deterministic addresses include source token address in salt
+- [ ] **Bridge pause mechanism** — can bridge be paused if remote chain has issues?
+- [ ] **Replay protection** — cross-chain messages unique per chain, can't be replayed
+- [ ] **Settlement finality** — does bridge wait for sufficient confirmations?
+
+### Signatures & EIP-712 — Macro-inspired
+- [ ] **Domain separator uniqueness** — does domain separator include contract address and chain ID? (prevents replay across wallets/chains — see Compound H-1)
+- [ ] **Dynamic params hashed** — EIP-712 requires `keccak256` hashing of dynamic types before encoding (see Compound M-1)
+- [ ] **Session key revocation** — can session keys be revoked on-chain before expiry? (see Sapience M-2)
+- [ ] **Nonce management** — sequential vs random nonces. Can collisions prevent user from making multiple txs? (see Sapience M-3)
+- [ ] **msg.value in signature** — is ETH amount part of the signed message? If not, can attackers grief with 1 wei? (see Compound M-2)
+
+### Recurring Patterns from the Aug–Sep 2026 Exploit Wave
+*(See POSTMORTEMS/pattern-trace-2026-09.md for full mapping + sources)*
+
+**Authz / state (Provenance, Term)**
+- [ ] **Default-state authz** — for every access predicate, test with a fresh/empty account: predicate MUST be false when the caller has done nothing (Provenance: `0 == 0` self-admin; "hold 100% of supply" where supply = 0)
+- [ ] **Stale/informational fields in guards** — any storage field not updated on ALL lifecycle paths (non-fixed markers, cached supply) must never gate authz; read the live source of truth instead
+- [ ] **Quorum/participation denominator** — measured against the right total (active/wrapped vs total shares); can the entire electorate be cornered cheaply? (Term: ~0.5 ETH = 90% voting power)
+
+**Balance mirrors & sync (Cosmos EVM cluster)**
+- [ ] **Two sources of truth** — where a balance/supply is mirrored (bank↔EVM, wrapper↔underlying, locked↔spendable), audit the SYNC arithmetic: unguarded subtraction = underflow to 2²⁵⁶; overflow transfers redistribute real balances
+- [ ] **Mirror invariant** — mirror == authoritative after every state-changing op, including delegate/lock/stake/transfer-in paths; test sync with boundary deltas (1 wei over/under)
+- [ ] **Address-assumes-status** — can a precomputed future address be converted into a privileged account type (vesting) before the contract exists there?
+
+**Lending params (Moonwell, Tectonic)**
+- [ ] **Caps count every balance-arriving path** — direct ERC-20 transfer to the market/token contract bypasses deposit-path caps but still counts as collateral (Moonwell: 53.4M MAMO transferred in, not supplied)
+- [ ] **CF sized to depth, not price** — collateral factor × real DEX depth: would $2M move price 40x? (then CF must be tiny); cross-check vs feed deviation bounds
+- [ ] **Exchange-rate self-debt** — can one actor's borrows inflate the numerator of the token they post as collateral (Compound-v2 family rate = (cash+borrows−reserves)/supply)?
+- [ ] **Whole-market single-call exits** — per-market cash caps on `borrowMax()`-style sweeps
+
+**Verifier/quorum logic (KelpDAO, AFX, Harmony)**
+- [ ] **Single-verifier trust** — 1-of-1 DVN/relayer/watcher = single point of failure; dispute windows are useless vs compromised signers
+- [ ] **Quorum counts enabled signers** — empty/nil signer bitmaps and all-zero aggregate sigs must be rejected (Harmony); threshold met by few hot keys = key risk, not contract risk
+- [ ] **Dedup keys bound to signed data** — receipt spent-markers must derive from fields covered by the signature, not unauthenticated fields (Harmony cross-shard replay)
+
+**Entropy / infra (Coldcard)**
+- [ ] **No entropy fallback** — security-critical randomness must fail closed, never route to a PRNG (Coldcard: `#ifndef` on a macro defined-as-0)
+- [ ] **Dependency module versions** — pin + verify shared/upstream module versions and advisory status (Cosmos EVM: fix on main May 13 ≠ fixed in prod; silent backport + vague notes = countdown)
+
+## 📝 Added per Target
+
+| Target | New insights / checklist items added |
+|--------|--------------------------------------|
+| Quiver Protocol | Rounding quantification (1 wei max) |
+| SLVR | Randomness safety buffer, Fenwick tree integrity |
+| Index | Router safety invariants, returndata bomb protection |
+| Moonvault | Standard Beefy fork, no novel findings |
+| Basalt Vault | Cross-system pricing (E8/E18/E28), async settlement grace, universalCall delegatecall path, clone factory initialization |
+| Cleave | Oracle pin window verification (time-bounded operations), historical TWAP fallback safety, permissionless pin as feature not bug |
+| OBSDN | Single-EOA sequencer key risk, sequencer role separation, off-chain matching trust model, multi-collateral pricing, async settlement in perp DEX |
+| openOracle | Permissionless oracle game theory, settlement-by-absence, self-dispute economics, no-owner architecture, callback gas grief protection |
+| SukukFi | Already Code4rena audited — no new checklist items from solo review |
+| Macro Library (Sapience-1) | Payout proportional to wager share (not 1:1), settlement check before mint, withdrawal overflow guard, bridge CREATE3 salt origin check |
+| Macro Library (Sapience-1) | Session key on-chain revocation, permissionsHash enforcement, random nonces over sequential |
+| Macro Library (Compound-1) | EIP-712 domain separator per-wallet, dynamic type hashing in structHash, msg.value signature inclusion |
+| Macro Library (Silicon-2) | Staker reward distribution correctness, NFT staking state consistency, marketplace listing integrity |
+| Sentry | Launchpad factory — proxy upgrade path (TransparentUpgradeableProxy + separate ProxyAdmin as contract), LP permanent lock (no withdraw/transfer), TsunamiPoolManager trust for initial pricing, fee routing split (65/35), try/catch pool creation safety, reentrancy guard on all external functions |
+|| MinePea | Full-stack gamified mining — Pyth VRF integration, 60s round game loop, cross-contract mint-before-settlement-flag fragility, AutoMiner executor centralization (Random/All strategies), short 60s TWAP on Treasury buybacks with no swap price limit (`MIN_SQRT_PRICE+1`), one-directional TWAP deviation check (only blocks overpriced buys), quiverCallback re-entry vector via feeCollector raw `.call`, AutoMiner rounding dust trap in stop(), CEI pattern verified across all 5 contracts |
+| Ravenhood | Simple deflationary treasury — Vault `claimBurn()` has no slippage protection (`amount0Min: 0`), no on-chain buyback automation (off-chain only), Vault owner ≠ DAO wallet (two trust anchors), StakingPool `emergencyRewardWithdraw()` CEI ordering zeros user pending rewards, RVH token ownership renounced (supply permanently fixed) |
+|| Peeps | Bonding curve launchpad with native token ($PEEPS) — LP Fee Vault `onERC721Received` auto-registers arbitrary NFTs (mapping corruption via crafted `data`), router/migrator single points of centralization, sell can reverse graduation phase, factory parameters start unset at construction, curve math verified sound |
+|| HoodBets | Prediction market — resolver centralization (single address decides ALL outcomes), no refund deadline for unresolved resolver markets, fee-on-buy reduces effective pool 6%, buyShares lacks nonReentrant, trading halt locks users 30min before settlement |
+|| Hood Index | Immutable MAG7 index — ERC-4626 vault with hard-coded 10bps fee cap, no upgradeability, no admin withdrawal, 1% effective slippage gap on Uniswap swap, caller-provided swap routes (MEV-directable), max 80h staleness window on NAV |
+|| STEEL | Gamified mining fork — owner redirects staker rewards (changeable veSteel address), jackpot odds from same drand randomness, auto-subscribe grief via permissionless keeper, carry accumulators unbounded, integer division dust in auto-subscribe escrow |
+|| Run Money | **New checklist item (Math & Accounting → Share ratio manipulation, part 2):** when a function freezes a snapshot into storage on one state transition (e.g. `flag: false→true` stores `currentBalance` into a mapping and adds it to a running total), always check the REVERSE transition (`true→false`) subtracts the SAME STORED SNAPSHOT — not a fresh re-read of the live/current value. A fresh re-read on the reverse path is a near-invisible bug (both branches "look" symmetric at a glance, same variable name used both places) that corrupts a SHARED total from ordinary usage, no attacker required, and can silently underflow-revert or zero out accounting for every other party sharing that total. Grep for any `mapping(id => uint) frozen; total += x; ... total -= y;` pattern and verify `x` and `y` are the literal same read, not independently-computed "current state."
+|| Run Money | **New checklist item (Math & Accounting → Share ratio manipulation):** a value-weighted distribution (yield/rewards split proportional to a balance) that snapshots the weight from a LIVE, freely-mutable balance at a single unprotected instant — with no minimum holding period, no time-weighted averaging, and no re-validation before payout — lets anyone temporarily inflate that balance right before the snapshot, then withdraw immediately, and keep the oversized weight for the rest of the period. Check for this pattern anywhere a `mapping(epoch/round => weight)` is set once from `currentBalance` inside an admin/oracle-triggered function, with a separate free `withdraw()` that doesn't touch the snapshot. Doesn't require a flash loan if the snapshot window is wide (e.g. weekly epochs) — just capital for however long it takes to get caught by one triggering call.
+|| death.fun | **New checklist item (Signatures & EIP-712):** when multiple functions in the same contract follow a "backend signs a message, user submits it" pattern, check that EVERY such function binds `msg.value` into its signed hash if it's `payable` and the value matters (not just the deposit-creating one) — an inconsistency between two structurally similar functions (one binds it, one doesn't) is a real anti-pattern to grep for. Also check EVERY signed-message function for a used-signature/nonce tracking mechanism — a missing deadline-only gate (no consumption) means any valid signature is replayable an unlimited number of times within its window, not just a single-use mismatch. **New chain-tooling item:** zkSync-family L2s (Abstract, zkSync Era itself, etc.) compile to zkEVM bytecode via zksolc — standard Foundry fork execution can't run it; verify via `foundry-zksync` or fall back to source-level + live read-only verification (see CHAIN_INFO.md → Abstract).
+| death.fun | **New checklist item (Reachability reasoning — this one cost a retraction, read it):** three separate traps, all hit on the same finding. **(1) On a native-AA chain, `tx.from` is the ACCOUNT, never the signer** — session keys, relayers and paymasters all produce transactions that look like the user's, so `tx.from == subject` proves *whose account*, never *who ordered it*. 7,329 on-chain calls "from players" looked like proof of player-submission and were not; the real answer required reading the client for signature handling. **(2) A negative string-grep is not proof.** Searching the bundle for `serverSignature` returned 20 hits, all inside ABI definitions, zero in behaviour — decent, but it would miss a signature returned under a different field name. The conclusive check is what the client *destructures out of the response*: here `let { preliminaryGameId } = await res.json()` reads exactly one key, so a signature cannot be received. Look for the response-body destructuring, plus a `*_pending` status poller — that shape ("client asks, something else signs and submits, client polls") is the fingerprint of backend-submitted calls. **(3) "The feature gets used a lot" ≠ "an outside party can reach it."** A session-key grant (`valueLimit: Unlimited`) for a function proves the *server wallet* is permitted to call it; it is not a capability handed to the player, and the signature still only exists on the server. Rate *external reachability*, not usage frequency — they are different axes and conflating them flips Likelihood from Low to High wrongly. |
+| death.fun | **New checklist item (tooling — false positives in your own detector):** an automated "did I find a signature?" scanner whose field-name pattern includes a key from its own log schema (e.g. `"note":` in the capture format) will fire on its own output and report a finding live that is not. A detector that can't stay quiet is worse than none, because it manufactures exactly the escalation the retraction was meant to prevent. Scan only app-origin payloads (response bodies + inbound websocket frames), exclude your own RPC reads, and pin BOTH a negative control and a positive control (plant a real 65-byte signature and a real function selector — confirm it fires) in a self-test before trusting a "clean" result. Also leave the compiler/consumer codegen script deterministic: encode the same calldata twice and assert byte-identity. |
+|| Moocon (Solana, in progress) | **Non-EVM recon pattern**: closed-source Anchor program with no on-chain IDL — pull the `programData` account raw bytes (owner = BPF Upgradeable Loader) and extract printable ASCII runs; Anchor/Borsh compile every instruction name, account name, and `require!()` error string as a literal, recovering the full instruction/account/error surface without any decompilation. Then cross-check which pubkeys sit at which byte offsets in live state accounts (`getProgramAccounts` + raw `getAccountInfo`) against known addresses (upgrade authority, keeper bot) — this can PROVE centralization facts (e.g. upgrade authority == round-authority field) without needing the source at all. Also: block-explorer instruction-name decoding (Solscan) can be flat wrong for unverified programs — always verify against raw `getTransaction` `logMessages`.
+|| DefiLords | ERC-4626 vault suite — yield reserve must be EXCLUDED from totalAssets() (double-counting), accRewardPerShare must update BEFORE minting fee shares (phantom rewards), deployIdle must exclude yield reserve from deployable amount, use revert not assert() in vault solvency checks (gas-efficient recovery), adapter switch must withdrawAll() first (crash share price otherwise)
+|| death.fun | **New checklist item (tooling — a clean result is only evidence if the detector can fire, and only for the shapes it parses):** the same pre-reveal probe reported "no leak" twice for two different reasons. First it was a false positive (its pattern matched its own log schema). Then, after that fix, it was a **false negative**: its parser read only `{currentGame}/{game}/{games[0]}`, so when the app returned the decisive data nested at the top level as `{currentRow, nextRow}` it never looked there and still said "clean". **Two rules: (1) every negative-result detector ships with synthetic POSITIVE fixtures proving it fires — if you cannot make it fire on a planted leak, its "clean" is worthless; (2) enumerate every response SHAPE the app can return for that endpoint (poll vs action-response vs websocket frame vs settlement) and cover each one, or state explicitly which shapes were not covered.** Prove the fix too: re-run the new fixtures against the old detector from `git show HEAD:…` and record that it FAILS (v1 5/6 vs v2 6/6). |
+|| death.fun | **New checklist item (provably-fair / verifiability claims — check the tool, not just the mechanic):** when a protocol ships a "provably fair — verify it yourself" verifier, the highest-value cheap check is to push the protocol's OWN on-chain commitments through the protocol's OWN verifier code before auditing anything else. Two independent failure modes found in one pass: **(a) constant drift** — the published verifier hard-coded `HOUSE_EDGE = 0.05` while the deployed app committed with `.04`, *and* the verifier hashed raw floats while the app rounded to `1e8` before hashing, so the verifier reproduced **0 of 706** standard real games (a false fraud signal pointed at their own users); **(b)** ~~commitment coverage — 143 settled games committed `rowConfig: []`~~ **RETRACTED: those were a different game mode, where `rows: []` is the documented-correct format (their own verifier: `// Use 0 for games without rows (like dice)`). See the classification row below.** Always ask: *does the committed payload actually constrain the outcome, and does the tool reproduce it?* Do it against production data at scale — and compute it in the target's own language (see the float row below). The verified positive here is worth as much as the defect: 706/706 standard games reproduce, commit-to-play board identity holds 706/706, and a pick-vs-reconstructed-skull test over 706 real games has **0 contradictions**. |
+| death.fun | **New checklist item (CLASSIFY YOUR POPULATION BEFORE YOU ANALYSE IT — this one produced a false finding and a retraction):** one settled-games dataset silently contained **three different game modes**, and I ran all of it through the death_race algorithm. 706 were death_race; 143 were a mode with no rows (where `rows: []` is the correct commitment, not a bug); 49 were a coordinate-grid mode. **`gameType` was not in the on-chain struct, so the dataset looked homogeneous and I never asked whether it was.** The tell was sitting in plain sight the whole time: pick indices of 9–12, when death_race rows have at most `MAX_TILES = 7` tiles so indices cap at 6. **Rules: (1) before analysing a population, prove it is ONE population — histogram the inputs and look for bimodal/out-of-range clusters; (2) treat an out-of-range value as a CLASSIFICATION signal, not as noise or as evidence of a bug; (3) if the record type has no type field, derive the mode from behaviour (value ranges, data shapes — flat ints vs nested pairs) before running any mode-specific algorithm.** A wrong classify step turns "these 143 games are a different game" into "these 143 games prove nothing" — same data, opposite conclusion. |
+| death.fun | **New checklist item (JS targets: do hash work in JS, not Python):** reproducing a commitment from a JavaScript codebase requires JS float semantics. Python `round(o*1e8)/1e8` + `json.dumps` disagrees with JS `Math.round(o*1e8)/1e8` + `JSON.stringify` on **55 of 706** games here (different half-rounding rule, different float-to-string), which produced a bogus "651/706 reproduce" and a bogus "55 games where the committed board ≠ the board played". Both were language artifacts, not chain facts. **Any hash-reproduction or commitment-verification claim about a JS target must be computed with node using the target's own arithmetic**, and a Python/JS spread is itself a signal you are comparing the wrong things. Also: a hash comparison is binary — a 92% match is not "close", it is 92% wrong. |
+| death.fun | **New checklist item ("the client is the only bound I can find" ≠ "there is no server-side bound" — this nearly shipped a Critical on an argument from absence):** the create-game body is client-built (`{betAmount, rowConfig: rows.map(e=>e.tiles)}`), the only bound found anywhere in the client was a UI toast, the on-chain history showed all 370 sampled death_race boards inside `[2,7]`, and the contract validates *nothing* — so `rowConfig` looked unvalidated and `tiles=0` would make `sha256(seed-rowN) % 0 → NaN`, i.e. a guaranteed win. **It was fully validated server-side.** One authenticated request settled it: the server returns a per-element zod schema error — *"Each row must have at most 7 tiles"*, *"at least 2 tiles"*, *"expected int, received number"*, *"Must have exactly 25 rows."* **Rules: (1) absence of evidence in the client, in on-chain history, and in the contract is NOT evidence that the server is missing a check — mark it OPEN, never Critical-if; (2) with an authenticated session, PROBE THE ENDPOINT: a schema-driven 400 enumerates the real validation in one call, which is worth more than any amount of client-side reading; (3) on-chain history is a terrible oracle for this — legal values only prove nobody tried, illegal values may belong to a different code path (see the classification row above).** |
+| death.fun | **New checklist item (reproducing an authenticated endpoint: get the request SERIALISER right, or you will misread a "field not received" error as "field not validated"):** this app sends bodies wrapped in **superjson** (`{"json":{…},"meta":{"values":{"betAmount":["bigint"]}}}`) because `betAmount` is a bigint. Posting plain JSON produced `400 … "betAmount":{"_errors":["expected bigint, received undefined"]},"rowConfig":{…"expected array, received undefined"}` — which reads as *"neither field is validated"* and is in fact *"your body was never parsed"*. The same wrapper appears in the RESPONSES (`{"json":{…}}`), which is the tell. **Rules: (1) when a client uses a custom serialiser (superjson, BigInt/Date markers, `{"json":…}` envelopes), sniff the response shape and mirror it in the request; (2) if a required field reports `undefined` rather than a type error, suspect the envelope, not the schema; (3) always send a deliberately-invalid-but-well-formed control (here: valid board with `betAmount = 1 wei` → *"Bet is below the minimum"*) to prove your request actually reaches field-level validation before you conclude anything from a rejection.** |
+| death.fun | **New checklist item (opening a session without a browser — the full decision tree, so it is not re-walked):** when login is a hard blocker, work DOWN this list and record which rung closed it. **(a) Does the app ship its own auth?** Often no — here the `/api/v1/auth/nonce\|verify-signature\|token` PKCE flow in the bundle belonged to a third-party SDK (Terminal) pointing at a different server; grep for the base URL before assuming ownership. **(b) Read the IdP's PUBLIC app config.** `GET https://auth.privy.io/api/v1/apps/<appId>` returns the real `wallet_auth` / `email_auth` / `guest_auth` / `captcha_enabled` / `*_oauth` flags — it cost 30 seconds and immediately killed four routes (needs a browser User-Agent; a Python UA gets Cloudflare 1010). The app id itself is inlined in the client bundle as `NEXT_PUBLIC_*`. **(c) Check the cookie name empirically**: inject the token under candidate names and look for any response that ISN'T the generic "missing token" error — `privy-id-token` gave a 500 while every other name gave `missing jwt`, i.e. the name was right and the token type was wrong (access token vs ID token — Privy stores both). **(d) Accept the wall.** Here the captcha host is genuinely IPv6-only with no IPv4 origin (**522 on every Cloudflare edge**; the IPv6 address maps to an IPv4 whose edge serves a valid cert and then fails), so no browser on the host can pass it — and defeating a captcha is out of scope regardless. **(e) The cheapest unblock is one cookie value from a human**, not a whole probe script — you then run everything yourself and can iterate. |
+
+## death.fun wave — added 2026-09-10 (F07)
+- **Free enum oracle**: to test whether a value is accepted WITHOUT creating the resource, send it with a
+  value that trips a LATER validator, then read WHICH field the error lands on. An error on a later field
+  proves the earlier field passed. Used to map the live game-mode surface ($0) and to find the stored
+  `version` of a finished game (brute-force the one value that yields a DIFFERENT error depth).
+- **Validation order is itself evidence.** On `select-tile` the check order is schema → game lookup →
+  `tileIndex` bound → version; the bound fires for every version value, which proves it precedes version.
+  Establishing order is what let the pick-path tests run against a *finished* game for free instead of a live one.
+- **A hash that doesn't match the commitment is not automatically a finding.** `commitmentHash` (API) ==
+  on-chain `gameSeedHash` == verifies against the revealed seed. The create response's separate `hash` is
+  neither. Confirm WHICH value the verifier consumes before calling a mismatch a fairness break.
+- **Per-mode commitment row shape** — get the JSON key order right or you will manufacture a false
+  MISMATCH: death_race `{tiles, deathTileIndex, multiplier}`; laser_party `{tiles, dimension, deathTileIndex,
+  multiplier}`; both under `{version, rows, seed}`.
+- **Guessable ≠ exploitable.** `version` is a small counter (1 + actions) but equality-enforced, so knowing
+  it grants nothing. Check the comparison, not just the entropy.
+- **Gate every leak-check on `status`.** `currentGame` / `previousGame` serve the MOST RECENT game, not
+  necessarily a live one — after settlement they are the just-finished game with its seed and skulls
+  legitimately revealed. A leak detector without a `status=="active"` gate reports every settled game as a
+  Critical. This false-positived a scanner run this session (caught before reporting).
+- **death.fun API field casing is inconsistent — map it once, don't guess:** create + active take
+  `gameType` as a **query** param (camelCase); `select-tile` takes `game_type` in the **body** (snake_case);
+  `cash-out` takes only `{version}` and is `.strict()`. A lower-case probe of `/api/games/active` returns
+  "Game type is required", which masks whether the endpoint even works — it cost real hours this session.
+- **Before reporting any API "leak" or "mismatch", confirm which value the verifier/app actually consumes.**
+  Twice this session a mismatch turned out to be my key-order or shape guess, not their bug (F07 §5 rows,
+  F08 settled-game gate).
+
+
+## Public-audit pattern import — Pashov OLY/OlympusX, 66 findings (added 2026-09-12)
+Source: `POSTMORTEMS/oly-pashov-66-2026.md`. Use as a **pre-audit grep list** on any target
+with this shape: Uniswap V4 hooks, LST (stETH/wstETH) vaults, taxed tokens, multi-cycle
+reward vaults. 12 shapes; the checklist deltas worth memorizing:
+
+- **Earmarked-balance sweep.** If a contract keeps per-user credited balances AND has a path
+  that uses `address(this).balance` / `balanceOf(this)` as "surplus", check for a zero-input
+  permissionless trigger. (OLY C-01: anyone redistributed genesis' earmarked ETH.)
+- **Form-of-value across steps.** In any multi-step ETH↔WETH flow, state the form of every
+  value at each hop; never infer "amount used" from a *requested* amount — measure the delta
+  and handle a sweep returning extra; never cache a derived ID (`tokenId`/`poolId`) when the
+  underlying op can no-op. (H-01, C-02, C-03)
+- **Config → derived state.** For every setter: list derived state, confirm recompute. For
+  every mapping membership check: what value can never be a key (`address(0)`), and does the
+  code accept it anyway? (C-04, M-12, L-15/16/17/26)
+- **Shares vs assets.** On any rebasing/LST/4626 token, label *every* use site shares-or-assets,
+  verify conversion direction + rounding (can wrap mint 0?), and grep for hardcoded pegs. Read
+  the return-value semantics of every external call consumed (`stETH.submit()` returns SHARES,
+  not amount — that one misread was a Critical). (C-05, L-07, L-11, L-27, M-19)
+- **Terminal-flag lifecycle.** For each `filled`/`settled` boolean, enumerate exits and trace
+  accumulated value. Attach fees to participants, not containers (a tick/range/pool). A hard
+  `require` on a partial fill is a griefing vector. (H-03, M-08, M-09, M-23, L-05)
+- **Price-read decision test.** Used to size/mint/burn/liquidate ⇒ demand TWAP + observation
+  cardinality + staleness + decimals + deviation; a "fall back to spot" branch is Critical-class
+  by default. (H-06, M-04, L-04, L-17, L-22, L-26)
+- **Branch-diff the arithmetic.** Any two branches computing the same kind of amount must agree
+  on scaling, rounding and fees (1e6 applied in one branch and not the other = rebalancing
+  silently off). Never compare/sum raw amounts of two different tokens. Every swap variant gets
+  the same effective tax. (H-04, H-07, H-08, L-20)
+- **Vault reward-accrual gauntlet** — 8 checks, run verbatim on every staking/vault/inflation
+  system: (1) is the `totalShares == 0` guard *reachable* (a permanent dead/minimum stake makes
+  it unreachable — bug, not safety net)? (2) every `== 0` used as "uninitialized" — can 0 be
+  legitimate? (3) `x * PRECISION / y` under/overflow bounds. (4) rounding dust: where does it go,
+  is the pool zeroed anyway? (5) does the claim path filter by the *stake's* duration/cycle
+  eligibility or just by availability? (6) catch-up loops advancing one step per tx. (7) are
+  "allocated" and "minted" emissions tracked separately — can a claim fall between them?
+  (8) events derived from a pre-scan that can `break` early. (M-01, M-02, M-06, M-11, M-14,
+  M-16, M-17, M-22, L-09, L-10, L-18, L-19, M-07 — 13 findings, largest family.)
+- **Outbound transfer must-not-fail.** Push ERC20 rewards to a blacklistable token (USDC) can
+  lock a user out of staking *entirely*; a computed remainder can exceed an external protocol's
+  max (Lido 1000 stETH → all withdrawals revert) or fall under its min (100 wei → `harvest()`
+  reverts); excess `msg.value` must be refunded. (M-03, M-10, L-06, M-15)
+- **Setter-vs-constructor invariant diff.** Build setters × invariants-established-at-construction
+  and diff; then define the meaningful min/max of each config value and check it's enforced.
+  (L-15, L-16, L-17, L-26, M-13, L-22)
+- **Permissionless self-dealing probe.** For each free entry point: can I be both sides of a
+  bonus (self-referral doubles it)? can I grow a victim's array (gas-grief their unstake)? can I
+  race to revert them? is the payout gate actually terminal (auction *ended*, epoch *filled*) —
+  or only implied by the UI? (H-05, L-01, L-12, L-05, L-23)
+- **Never route internal ops through the user-facing taxed/hooked surface.** If protocol
+  tax/fee can exceed the configured slippage, the internal path is a brick. Retry loops must
+  recompute *all* amounts on total failure. (M-25, H-02, L-24)
+
+
+## Corpus-prioritised triage — Shieldify 125 audits / 1022 findings (added 2026-09-12)
+Source: `POSTMORTEMS/shieldify-125-corpus-2026.md` + `POSTMORTEMS/refs/shieldify-125-pattern-ranking.md`.
+**This section changes the ORDER we check things in. Read it before starting any target.**
+
+**The core rule: rank bug classes by SEVERE DENSITY, not by frequency.** In 125 real audits the
+most common family (`input_validation`, 115 findings) is 3% severe; the most dangerous
+(`reward_accounting`, 56 findings) is 39% severe. Count-based triage points you at the cheapest bugs.
+
+**Priority order (severe-dense first):**
+1. **reward/accrual accounting** — 39% severe. Run the 8-point vault gauntlet (OLY import, F8):
+   eligibility filtered by stake duration? `totalShares == 0` guard actually reachable? `== 0` used as
+   "uninitialized" where 0 is legitimate? `x * PRECISION / y` bounds? rounding dust destination?
+   catch-up loops stepping one cycle per tx? allocated-vs-minted tracked separately? events from a
+   pre-scan that can `break` early?
+2. **withdrawal / exit / queue** — 29% severe. Queues, cooldowns, bridging delays, fulfillment math.
+3. **rounding / precision / decimals** — 27% severe, only 2.5% of volume. CHECK: `convertToShares`
+   rounds UP on withdrawal (ERC-4626 — a round-down here was a Critical); never compare/scale raw
+   amounts of two different-decimals tokens (OLY H-04/H-07 identical bug).
+4. **fee / tax routing** — 25% severe. Fees charged to the protocol instead of returned; fees paid
+   when not due; config able to dodge fees entirely.
+5. **funds locked / DoS / griefing** — 20% severe AND 9.6% of volume — the only family in both
+   top-3s. Severity here is "funds nobody can move", not theft — under-audited because it reads as UX.
+6. **access control** — 20% severe. 8 of the corpus's 34 Criticals.
+7. **web2 / off-chain / frontend** — 22% severe, 0 Criticals but 9 Highs. Decimals handling,
+   parameter spoofing, error handling on the off-chain side is a HIGH. Do not skip it.
+
+**Deprioritise to "mention, don't deepen":** docs/spec (38), events/returns (31), pause/emergency
+polish (21), auction polish (6) = **96 findings, zero Criticals or Highs across 125 audits.**
+`gas_optimization` = 88 findings, 1 severe. `reentrancy` = 12 findings, 1 severe (lowest-yield
+famous class in this corpus).
+
+**NEW mandatory check — AA / session-key / module authz (3rd sighting of this pattern):**
+ERC-4337 modular wallets and session-key modules produced **10 of 34 Criticals** in this corpus
+(Etherspot CAM alone: 8). Grep every session-key/module path for:
+- **Key identity**: does `enableSessionKey`/`addKey` check the key is unused AND not registered to
+  another wallet? Missing either = session-key hijack. (A key's identity is not its value.)
+- **Whose state is being read**: any `validUntil`/`expiry`/`owner` check — is it reading the
+  **subject's** field or the **caller's**? A privileged caller whose own field is 0 turns the check
+  into `0 >= now` → always false → skipped.
+- **`msg.sender` isn't the caller in a module context**: install/uninstall/execute paths that take
+  `sender` from calldata and treat it as the real sender → anyone can act on any wallet.
+- **Proof consumption**: does the validator CONSUME the signature (nonce/used-flag), or merely verify
+  it? Verify-without-consume = replay.
+Cross-ref: `pattern-trace-2026-09` Pattern 1 (authz satisfiable from attacker's default state),
+OLY import F3 (sentinel values bypass membership checks) + F11 (be your own counterparty).
+
+**Prior-art reading list (chains we hunt):** Robinhood Chain — `Up`, `OffYield`, `Topaz Dex`,
+`Trace` (public Shieldify reports exist). Abstract — Onchain Heroes, DEPTH, Souls.club, Spellborne,
+Pudgy Strategy, Aborean, Infinite Beyond, Shady/Dropster, Tollan Universe. Read these BEFORE
+touching a target on those chains (BountyForge "What Changed" method, now with a corpus behind it).
+
+| death.fun | **New checklist item (detector COVERAGE must be enumerated per response SLOT, with a planted positive control per slot — this one invalidated a published negative):** the scanner that certified "leaks: NONE across every read path" parsed only `currentGame` and `history`. It never referenced `previousGame` — which was the exact shape the same report left open ("does a second game push the first into `previousGame` with its seed?"). A planted leak there (active game + seed + all 25 skulls) produced **`leaks: NONE`**, while the identical leak in `currentGame` was caught. Two rules, both cheap: **(1) before trusting a negative detector's silence, read its source and list the fields/slots/shapes it actually parses — a clean result is only evidence for the shapes the parser covers; (2) for every shape, plant a leak and prove the detector fires (positive control), plus a secure fixture proving it doesn't false-positive.** Implement detection as a PURE function over parsed payloads so fixtures can be run without a network, and ship `--self-test` with the tool. Fix + proof: `disclosure/f09-reassess/live-board-leak-scanner-v2.py` (parses current+previous+history, `--self-test` 3/3) — v1 exit 0 on the planted leak, v2 exit 1. |
+| death.fun | **New checklist item (contradiction between two of your OWN artifacts is a finding — resolve it with primary data, never by picking the one you like):** `F05` §1 asserted the create-response `hash` equalled the on-chain `gameSeedHash`; `F07` §6 recorded the opposite for the same game. One fresh read-only `eth_call` to `games(gid)` settled it: on-chain `0x4a76da3e…` vs create `0xbfed3068…` → **F05 was wrong** (it had compared the create hash against the API's own `commitmentHash` field, not the chain value). The pair had been sitting in the repo for two days. **When two artifacts disagree on a load-bearing fact, that's a scheduled re-verification, not a judgement call.** Then widen the negative properly: the create `hash` was falsified against **607** candidate constructions (4 version encodings x 5 row shapes x 4 seed encodings x all 6 top-level key orders, + row-object key orders + string forms), the 9 neighbouring games' commitments, and all 898 sampled games — **with a passing sanity control** proving the same hasher reproduces a known on-chain commitment. A negative without a passing positive control on the same tool is not a result. |
+
+## narbet (Monad) — recon rules added 2026-09-12
+Target: `TARGETS/narbet/`. Monad mainnet 143, Pyth Entropy V2, 19 games, UUPS, no verified source.
+
+- **PROXY EXISTENCE ORACLE — get the revert-data rule right or it lies every time.** To test whether
+  a contract implements a selector (no source, no ABI match), call it: a **return value** or a revert
+  carrying **≥4 bytes of revert data** (a custom-error selector) ⇒ IMPLEMENTED; a revert with
+  **empty `"0x"` data** ⇒ ABSENT. That empty-revert case is exactly what a proxy fallback returns when
+  the implementation lacks the selector. **Do NOT test `"data" in error_json` — every revert payload
+  has a `data` key, usually the empty string, so that rule reports every selector as implemented on
+  every proxy** (it did, on 10/10 contracts). Include a known-absent selector as a control.
+- **Resolve derived contract roles on the proxy, not from the app's naming.** Bundle variable names
+  (`rootContractAddress`, `registryContractAddress`) were misleading; the actual roles came from
+  probing which selectors each proxy answers (`getIsGame`/`tokenTotalShares` ⇒ BankRoll;
+  `edgeFactor`/`entropy`/`REFUND_*` ⇒ shared config base).
+- **"entropy" is a doubly-loaded word.** In any **Privy**-based bundle, `entropyId` /
+  `entropyIdVerifier` are Privy embedded-wallet recovery fields. Pyth's randomness contract is also
+  `entropy`. I briefly concluded the Pyth inference was wrong on a keyword count. **Resolve a
+  randomness-provider claim from the typed ABI (`internalType: "contract IEntropyV2"`, or the
+  `_entropyCallback(uint64,address,bytes32)` signature) — never from a keyword count.**
+- **Grep with a terminating pipe SIGPIPEs Python mid-run.** `python3 script.py | head -80` killed the
+  script before its `json.dump`, silently losing the artifact while the console looked complete.
+  Redirect to a file, then read the file.
+- **Entropy-casino cheat-sheet to check on every such target:** (a) `REFUND_COMMIT_WAIT_BLOCKS` /
+  `REFUND_TIMEOUT_BLOCKS` vs the provider's real fulfillment latency — if the randomness can land
+  *inside* the commit window, a player can abort after seeing the outcome; (b) whether the
+  `_entropyCallback` settles atomically or leaves a request-pending window (`AwaitingVRF` /
+  `NotAwaitingVRF` / `NoRequestPending` errors are the tell); (c) `suspend`/`permantlyBan` × in-flight
+  funds — a banned player who cannot `*_Refund` has funds locked (`funds_locked_dos`); (d) multi-step
+  games (`Mines_Start`→`Mines_Reveal`→`Mines_End`) — double-reveal, reveal bounds, mid-game config
+  setters; (e) **advertised house edge in the client bundle vs on-chain `edgeFactor()`** — a mismatch
+  is the death.fun verifier-constant-drift bug family. Record the numbers, then reconcile against
+  real `X_Outcome_Event` payouts.
+
+### Fork-attack lessons (nar.bet, 2026-09-13) — reusable, not target-specific
+
+- **Forge oracle outcomes by impersonating the ORACLE CONTRACT, not the player.** You cannot usually
+  fabricate the provider's own `reveal` tx (commitment/hash-chain checks), but you can
+  `anvil_impersonateAccount(<ORACLE_CONTRACT>)` + `anvil_setBalance` and call the *consumer's*
+  callback directly, so `msg.sender == oracle` holds and the outcome is yours to choose. On nar.bet:
+  `_entropyCallback(uint64,address,bytes32)` on the game proxy, sequence read from `GetState`.
+- **Read state machines out of the revert data.** Block-number guard errors are a free spec:
+  `RefundTooEarly(have,want)` → `want = requestBlock + 2001`; `RefundClaimPending(have,want)` →
+  `want = commitBlock + 21`. That decoded a **two-step** refund gated by **two different constants**,
+  after reading the two constants alone had suggested one gate. Probe at increasing block offsets
+  until the error name changes; decode `(uint256,uint256)` args with `eth_abi.decode`.
+- **A revert decoder that reports "OK" for everything is the silent-wrong detector of this workflow.**
+  If `rpc()` already unwrapped the JSON-RPC envelope, a revert arrives as a bare `{code,message,data}`
+  object — checking for a nested `res["error"]` key returns success for every revert and produces a
+  complete, plausible, false timeline. Print one RAW response before believing any row.
+- **`anvil_mine(count)` silently under-mines** (asked 2002, got 1058) → the test never reached the code
+  under test. Mine in ~100-block chunks and verify `eth_blockNumber` reached the target.
+- **Fee-aware balance classification.** Where a per-bet oracle fee exists (1.4 MON on nar.bet), a
+  *winning* bet nets negative; `delta > 0` marks every bet a loss. Recover payout as
+  `delta + wager + fee` and compare against the wager.
+- **Guard order can hide the mechanism.** Every early probe returned the *timeout* error, making the
+  20-block commit wait look irrelevant; only walking the path one gate at a time exposed that the
+  refund is two calls. Probe at multiple block offsets, not one.
+- **Verify "no verified source" before accepting it as a constraint.** `api.monadscan.com` returns a
+  *deprecation* message, not a 404 — read the response body, not just the status code.
+- **A shell helper that doesn't forward `"$@"` silently calls the function with NO arguments.** In the
+  Longbow oracle-vs-DEX sweep, `c() { cast call "$1" "$2" ...; }` dropped every extra argument, so every
+  call that takes a parameter (`supplyQueue(uint256)`, `getPool(...,uint24)`) was invoked with none and
+  returned empty — and because stderr was sent to `/dev/null`, the whole 28-market sweep produced a
+  beautifully formatted table of blanks that my first parser then read as "no pool, no price". Nothing was
+  wrong with the chain; the harness lied. **Two rules from it:** (1) forward arguments explicitly
+  (`local to=$1 sig=$2; shift 2; cast call "$to" "$sig" "$@"`), and (2) never swallow stderr in a data
+  collector without ALSO asserting a known-good control returns a non-empty value in the same run.
+- **`cast` annotations corrupt `awk` field indices.** `cast call` prints `24073181425 [2.407e10]`, so
+  `tr '\n' ' '` + `awk '{print $3}'` silently picks the *comment* of field 2, not field 3. Strip the
+  annotation (`awk '{print $1}'` per line) before joining, or the "borrowAssets" you read is supplyShares.
+- **`cast codesize` a family of sibling contracts before reading any of them.** Identical sizes ⇒ same
+  source with different immutables (28 oracle instances, 28 distinct code hashes, all 1,277 bytes); a
+  deviating size is where the custom code is (found Longbow's 5,207-byte TWAP adapter among 26 9,571-byte
+  Chainlink proxies). But *deviating size means "different", not "the protocol wrote it"* — the 23,186-byte
+  outlier turned out to be Chainlink's own contract, and I attributed it to the team before checking.
+- **Cloudflare `403 "Just a moment…"` ≠ no source.** A browser User-Agent is not enough; real headless
+  Chrome is (see `TOOLS/cfetch.md`). Test the explorer route BEFORE committing to a target — Monad has no
+  free JSON API at all (its explorer is an SPA), which is what disqualified an otherwise-better candidate.
+- **A proxy address is a POINTER, never a target (G9, 2026-09-16 — hid ~$56M of coverage).** Do not trust
+  an explorer's `implementations[]` field to find the logic; Blockscout omits it for ERC1967/UUPS, and
+  recon then stages the *proxy* and scores own-code `0`. Read the slot from chain state:
+  ```
+  cast storage <addr> 0x360894a13ba1a3210667c828492db98dca3e2076cc3735a920a3ca505d382bbc   # EIP-1967 impl
+  cast storage <addr> 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50   # beacon, then implementation()
+  ```
+  A zero-length result means "not that proxy kind" — fall through to the beacon, then to a direct call.
+  Grep for the tell-tale staged set: `ERC1967Proxy.sol` / `Proxy.sol` / `StorageSlot.sol` with **no**
+  `src/<Name>.sol` beside it. Measured recovery: 3/3 proxy-fronted targets had unread verified impls
+  (874 / 1,673 / 1,779 lines) and the largest looked like a `$51.8M` target until the slot was read.
+- **A field filter must be checked for DISTINCT values before it is trusted (2026-09-16).** A whole
+  campaign's candidate pool was selected on `listedAt`-derived age; all **6,580** rows carrying that field
+  held 3 distinct day-values (20691–20693 ≈ the 1970-01-01 epoch sentinel). The "≤180d fresh" pool was
+  152 rows selected on a constant — ordering, not filtering. `node -e` one-liner: collect the field over
+  every row, print `new Set(vals).size`. `1` ⇒ dead field ⇒ the filter proves nothing.
+- **Above ~1,000%, a TVL-change field is a division artifact, not growth.** `change_7d` is computed
+  against a near-zero prior base on new listings; one protocol read `+4,328,704%`. Rank on the
+  **15–150%** band or the leaderboard is sorted by how recently the pool was seeded, not by inflow.
+- **Rank the discovery board by technique loss-density, not by TVL.** Over 708 Solidity+DeFi incidents /
+  $5.44B: cross-chain message verification **$99.0M/incident** and donation/skim **$26.6M** beat
+  access control ($8.3M) and reentrancy ($7.1M) by an order of magnitude. A funded, zero-audit
+  *bridge* outranks a bigger-funded generic dApp.
+- **A `public constant` GETTER consumes the pending cheatcode (2026-09-23, cost 4 failing tests and one
+  misdiagnosis).** `predicates.NO_PRIVILEGED_EFFECT()` is an *external call*. Written inside an argument
+  list — `assertions.register(predicates.X(), params, steps)` — it fires BEFORE the intended call, so
+  `vm.prank` is spent on the getter and the real call runs as the test contract, while `vm.expectRevert`
+  is armed against the wrong call and fails with `next call did not revert as expected`. **The tell is the
+  address in the failure:** `0x7FA9…1496 != 0x…f11E` — the test contract's own address where the pranked
+  account was expected. Hoist every constant getter into a `bytes32 pid = …;` local first. Applies to any
+  `public constant` on any contract, and to `vm.expectEmit`/`expectCall` the same way.
+- **`forge-std` has no `assertEq` overload for `bytes memory` or for an enum.** `assertEq(a.steps, b.steps)`
+  and `assertEq(claim.state, ClaimState.OPEN)` both fail to resolve; compare `keccak256(…)` of the bytes,
+  and cast enums to `uint256`. Cheap to hit, and it looks like a real compile error in your own code.
+- **Foundry 1.8.1's lint engine aborts the build on relative imports from `test/`.** It reports
+  `file ../../src/X.sol not found`, then `Error: post-build lint step failed` — *while also printing
+  `note: internal lint engine failure (compilation itself succeeded)`*. A build that exits non-zero for
+  this reason is NOT a broken build: confirm with `forge build --no-lint` (exits 0), then set
+  `[lint] lint_on_build = false`. Do not go hunting for an import bug that does not exist.
+- **Node's `crypto` has NO keccak256. `sha3-256` is NIST SHA-3 and is a DIFFERENT FUNCTION** (2026-09-23).
+  They differ by one padding byte (`0x01` Keccak vs `0x06` SHA-3) and agree on nothing else, so every
+  hash silently differs while looking entirely plausible. **Positive control that catches it in one
+  line:** `keccak256("")` must be `0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470`;
+  NIST SHA3-256("") is `0xa7ffc6f8…`. Assert BOTH — the hash equalling the first and NOT the second.
+  Cross-check real vectors against `cast keccak` (including real deployed bytecode), never against
+  remembered constants. A hand-rolled Keccak-f[1600] is ~120 lines and removes the dependency question.
+- **Determinism claims need a PINNED CLOCK, and the traces are how you find out you forgot**
+  (2026-09-23). Two runs of the same forked job agreed on the verdict but produced **different trace
+  hashes**, because each setup step mines a block and the protocol accrues interest from
+  `block.timestamp`. Pin it to the *pinned block's own* timestamp, inside the snapshot bracket:
+  `anvil_setBlockTimestampInterval(0)` + `evm_setNextBlockTimestamp(<block.ts>)` (+
+  `anvil_setNextBlockFeePerGas`). Semantically it is also the only honest choice — a claim about
+  state at block N is evaluated as of block N, not as of whenever your harness happened to run.
+  Wrap every replay in `anvil_snapshot`/`anvil_revert` and ASSERT the fork is unmutated afterwards
+  (read a balance the setup must have zeroed); a replay that leaves state behind makes run 2 differ.
+- **A revert is an OBSERVATION, not an error — conflating them inverts the verdict** (2026-09-23).
+  A harness that treats a reverting call as a transport/RPC failure reports "the call failed to run"
+  for exactly the class where the revert *is* the finding (a missing guard). Keep `{reverted:true}` and
+  `TransportError` as distinct types: JSON-RPC error **code 3** (or a message matching `/revert/`) is
+  data; anything else is infrastructure and must not be read as an observation. Same rule for setup:
+  if a state-mutating prelude step fails, the job never reached the code under test and any verdict is
+  a lie about a job that did not run — raise, do not evaluate.
+- **A single `eth_call` cannot express a state-dependent bug.** Reproducing one required a position and
+  outstanding debt first, so the unit of work is a **step sequence**: send real transactions
+  (`anvil_impersonateAccount` + `anvil_setBalance`, then `eth_sendTransaction` and wait for a receipt),
+  and treat only the FINAL step's outcome as the observation.
+
+## Guards: sibling asymmetry and quorum loops (2026-09-16, produced turbo-loop F-01 and F-02)
+
+- **Sibling asymmetry IS the detector — grep the family, diff the guards.** When a contract has a family
+  of functions that all do the same kind of thing, tabulate which guards each carries. The one that
+  omits a guard the others all apply is the bug, and the asymmetry is the finding. Measured on
+  `turbo-loop/Bridge2`: **7 of 8** mutating externals call `checkMessageNotUsed`, and **7** take a
+  `nonce` — `updateValidatorSet` does neither. That missing pair is a live unprivileged DoS: replay the
+  public signed blob and `updateTime = block.timestamp` resets, restarting the dispute window forever
+  and permanently blocking validator-set updates.
+
+  ```bash
+  # tabulate guard coverage per mutating external, then read the MINORITY row
+  awk '/function [a-zA-Z_]+\(/{name=$2} /checkMessageNotUsed/{print name}' <file>.sol | sort -u
+  grep -n "uint64 nonce\|bytes32 nonce" <file>.sol    # who lacks one?
+  ```
+
+- **A positional-signature quorum loop needs an explicit signer-dedup check.**
+  ```solidity
+  for (i = 0; i < validators.length; i++) {
+    if (signer == validators[i]) { cumulativePower += powers[i]; ... }   // no "seen before?"
+  }
+  ```
+  Nothing stops `validators = [A, A, A, D]`, so one key's single signature presented 3× is credited 3×
+  and reaches a 2/3 quorum alone (`turbo-loop` F-02; live params 4×1000 → quorum 2666). **Check every
+  quorum/threshold loop for a `seen` set or a distinct-signer accumulator.** Bound it by measuring: the
+  repeated slots must be enough to clear the threshold, so 2 of 4 slots (50% < 66.7%) must NOT trigger —
+  that bound is what proves the mechanism rather than pattern-matching it.
+
+- **A "no functionality breaks if X" comment is a lead, not reassurance.** `Bridge2.sol:146-148` states
+  the L1 enforces validator uniqueness and *"no functionality breaks even if addresses are repeated."*
+  That is the exact false claim F-02 disproves. Comments arguing a safety property holds *without a
+  check* mark where the author's reasoning is weakest — read them as attack hypotheses.
+
+- **Anything that sets a timer from a replayable message is a permanent DoS.** `updateTime =
+  block.timestamp` gated only by a signature (never by message consumption) lets any third party restart
+  the window indefinitely. The pattern pair: a *monotonic* guard (`epoch > active`) standing in for a
+  *consumed* one, plus a timer derived from submission time rather than from proposal identity.
+
+- **Distinguish reverts by REASON STRING, not by `ok == false`.** In turbo-loop F-01 the exploit test
+  "passed" because `finalizeValidatorSetUpdate` reverted on `checkFinalizer(msg.sender)` — a role check —
+  rather than on the dispute window under test. Same class as the `cast call → 0x` trap: two different
+  failures look identical unless the discriminator is asserted. `vm.prank` the correct role first, then
+  compare the decoded revert string:
+  ```solidity
+  (bool ok, bytes memory data) = addr.call(cd);
+  assertTrue(!ok && keccak256(bytes(revertString(data))) == keccak256(bytes("Still in dispute period")));
+  ```
+
+- **Read struct getter TUPLE INDEX off the struct definition, never off intuition.**
+  `pendingValidatorSetUpdate()` index 4 looked like a timestamp but is `nValidators` (= 4) — a
+  plausible-looking number that silently made an assertion test nothing. Print the whole tuple once and
+  map each position to its field name before indexing into it.
+
+- **Foundry remapping into a staged recon tree needs `allow_paths`.** Imports into
+  `../recon/.../npm/@openzeppelin/...` fail with "File outside of allowed directories" even when the
+  remapping is correct. Add to `foundry.toml`:
+  ```toml
+  allow_paths = [".", "../recon"]
+  remappings = ["@openzeppelin/contracts/=../recon/<addr>/npm/@openzeppelin/contracts@5.4.0/"]
+  ```
+
+- **A declared-but-never-emitted event is a real integration defect, and provable three ways.**
+  (1) `grep "emit <Event>"` across every source → 0 matches; (2) its topic0 **absent from the deployed
+  runtime bytecode** while sibling topics are present (`cast code <addr> | grep -i <topic0>`) — so a
+  `LOG` for it is impossible, not merely unobserved; (3) a full log census returns 0. `turbo-loop` F-03:
+  `Deposit` never fires, so inbound funds are **unaccounted on-chain** (`sum(credited) == assets_in` is
+  unprovable from the contract) and any indexer built on the ABI sees zero deposits.
+
+- **A high failure-event ratio is usually a client retry pattern, not a broken contract.** `turbo-loop`
+  showed 4,274 `FailedWithdrawal` against 857 successes (5:1) — a naive read says "the bridge is
+  broken." Decoded, it was the off-chain submitter retrying already-settled messages (code 0
+  already-requested ×1,805, code 1 already-finalized ×1,410, code 3 too-early ×1,059): evidence the
+  guards *work*. Decode error codes before treating an event ratio as evidence of anything.
+
+- **Before trusting a target's board entry, verify the file actually belongs to that target.**
+  The v3 board routed a `BrokerV2` dispatch question to turbo-loop `Bridge2`, but `BrokerV2.sol` is a
+  **swinghook** file (`identified.json` → `proto: swinghook`); the Wormhole note attached to turbo-loop
+  belongs to `hibachi-bridge`. Grep the `proto` field for the symbol before spending a pass, or the
+  whole pass is aimed at a file the target does not contain.
+
+## The degenerate-input guard family (2026-09-22 — imported from `Misbah-Engr/Audit-Reports-and-POCs`)
+
+**The shape:** *a guard whose condition is safe on the happy path but silently SKIPS a safety-critical side
+effect when an input is `0`, empty, or extreme.* It is invisible to Slither (the code is syntactically
+fine), it reads as defensive programming, and it is the single highest-yield family in the one peer repo
+imported this session — **4 of 8 published reports**, including the only one that was actually paid
+(Rujira, High, $500).
+
+| Instance | The degenerate input | The side effect it skips |
+|---|---|---|
+| **Rujira (paid High)** | `!swap.return_amount.is_zero()` gates an **entire accounting block** | `consumed_offer` is never subtracted from `receive` — zero-capital, single-batch, unbounded |
+| Rujira (same report) | `bids_value == 0` — a sum inflated by a term with no bids | limit-price check | 
+| Rujira (same report) | `bids == 0` | the limit-price check is skipped entirely |
+| Celo | pending votes | counted as active immediately, contradicting the dev's own doc comment |
+| Reliq-Low | per-tx cap | never checked **cumulatively** |
+| UFarm (Critical) | token decimals | never normalised before share math |
+
+```bash
+# 1. every early-return / positive-condition guard that WRAPS a state-changing block
+grep -nE 'if[[:space:]]*\(!?[a-zA-Z_.]+\.is_zero\(\)|if[[:space:]]*\([a-zA-Z_]+[[:space:]]*!=[[:space:]]*0\)' -A6 <file>.sol
+grep -nE 'if[[:space:]]*\([a-zA-Z_.]+\.length[[:space:]]*>[[:space:]]*0\)' -A6 <file>.sol
+# 2. the .is_zero() / == 0 idiom on an AMOUNT (not on an address) is the tell — an amount of 0
+#    must be a no-op, never a path that skips an accounting write
+grep -nE '\.is_zero\(\)|==[[:space:]]*0' <file>.sol | grep -iE 'amount|value|qty|sum|fee|receive|offer'
+```
+
+**Two cousins, same family — both are reads, not scans:**
+
+- **Asymmetric state transitions** — a flag set on one path and never reset on the inverse. `Thorwallet`:
+  `isBridgedTokenHolder[_to] = true` on credit, **never reset when the balance returns to zero**, so the
+  address is restricted forever and its later (non-bridged) tokens are un-transferable — an availability
+  bug with no funds lost. **This is the S1-mirror tabulation job above: for every flag, find the setter(s)
+  and ask which path lacks the reset.** A one-way latch with no inverse path is the detector.
+- **Variable mixups in multi-recipient paths** — `Legion`: `(referrerFeeReceiver, legionFee)` passed where
+  `(referrerFeeReceiver, referrerFee)` was intended; a pure copy-paste bug, found only by reading the
+  argument list against the parameter list. Check every call site whose arguments are two sibling
+  variables of the same type — the compiler cannot catch it and no scanner looks.
+
+**The discipline that keeps this from becoming noise — read this before filing one.** This family **overlaps
+the `audit2` profile** (guard-shaped, worth nothing), and the difference is *not* the shape — it is whether
+the skipped side effect has a **measured consequence in value**. So the bar is unchanged and it is G1/G6:
+- A degenerate branch that skips an accounting write whose gap is quantified (funds accounted to nobody,
+  a cap that does not cap, shares that do not sum) ⇒ a real finding.
+- A degenerate branch that merely reverts-vs-not, or skips an event, or is unreachable under any live config
+  ⇒ **an observation + `coverage_gap`, never a headline.** "A missing guard on one of eight siblings" is
+  still worth nothing; "a guard that stops guarding when the amount is 0, so `consumed_offer` never
+  decreases and the attacker ends with more value" is a paid High.
+
+**Why this family is also the strongest DEDUP posture** (see `SKILL.md` → G11c): it is invisible to static
+analysis, so a crowd running Slither does not find it, and the reports read as "the author forgot an
+inverse path" rather than "reentrancy". Prefer it over generic-lens findings on a platform channel, where a
+duplicate is rejected outright rather than deduped.
+
+**Report anatomy that travels with the family** (from the same repo, measured against real judge comments):
+quote **the developer's own comment** as the violated invariant (makes the claim non-arguable — you are
+quoting their intent, not asserting it); ship a **runnable test**, strongest when it *asserts the buggy
+value so the test passes*; title = **impact**, not mechanism; mark the violating line inline; and when no
+funds move, frame the impact as **availability / function** — the C4 validator's own acceptance wording is
+*"assets not at direct risk, but the function of the protocol or its availability could be impacted."*

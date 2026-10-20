@@ -1,0 +1,57 @@
+[
+  {
+    "plugin": "frontend-design@claude-plugins-official",
+    "version": "a0b04d9ddcca",
+    "sha": "a0b04d9ddccaabe1976645f68b0eda50f74e7022"
+  },
+  {
+    "plugin": "caveman@caveman",
+    "version": "2.7.0",
+    "sha": "2fd153c67988e980fb0b2455c90832159a6a5a25"
+  },
+  {
+    "plugin": "ecc@ecc",
+    "version": "2.2.2",
+    "sha": "c70874fae9eb0e5ad0365beb7e2955899fd1d30f"
+  },
+  {
+    "plugin": "building-secure-contracts@trailofbits",
+    "version": "1.2.2",
+    "sha": "442fc9d6c89b1e937e6f7a477e7071ea75fcbea4"
+  },
+  {
+    "plugin": "entry-point-analyzer@trailofbits",
+    "version": "1.0.4",
+    "sha": "442fc9d6c89b1e937e6f7a477e7071ea75fcbea4"
+  },
+  {
+    "plugin": "audit-context-building@trailofbits",
+    "version": "2.0.2",
+    "sha": "442fc9d6c89b1e937e6f7a477e7071ea75fcbea4"
+  },
+  {
+    "plugin": "differential-review@trailofbits",
+    "version": "1.1.4",
+    "sha": "442fc9d6c89b1e937e6f7a477e7071ea75fcbea4"
+  },
+  {
+    "plugin": "variant-analysis@trailofbits",
+    "version": "2.0.4",
+    "sha": "442fc9d6c89b1e937e6f7a477e7071ea75fcbea4"
+  },
+  {
+    "plugin": "fp-check@trailofbits",
+    "version": "1.0.5",
+    "sha": "442fc9d6c89b1e937e6f7a477e7071ea75fcbea4"
+  },
+  {
+    "plugin": "property-based-testing@trailofbits",
+    "version": "1.2.2",
+    "sha": "442fc9d6c89b1e937e6f7a477e7071ea75fcbea4"
+  },
+  {
+    "plugin": "frontend-design@claude-code-plugins",
+    "version": "1.1.0",
+    "sha": "c017428c8c27e604840435048d5bce6a9a22c040"
+  }
+]

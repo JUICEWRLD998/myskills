@@ -1,0 +1,50 @@
+{
+  "claude-plugins-official": {
+    "source": {
+      "source": "github",
+      "repo": "anthropics/claude-plugins-official"
+    },
+    "installLocation": "C:\\Users\\fadhm\\.claude\\plugins\\marketplaces\\claude-plugins-official",
+    "lastUpdated": "2026-10-20T08:14:38.025Z"
+  },
+  "caveman": {
+    "source": {
+      "source": "git",
+      "url": "https://github.com/JuliusBrussee/caveman.git"
+    },
+    "installLocation": "C:\\Users\\fadhm\\.claude\\plugins\\marketplaces\\caveman",
+    "lastUpdated": "2026-09-30T13:22:38.461Z"
+  },
+  "ecc": {
+    "source": {
+      "source": "git",
+      "url": "https://github.com/affaan-m/ECC.git"
+    },
+    "installLocation": "C:\\Users\\fadhm\\.claude\\plugins\\marketplaces\\ecc",
+    "lastUpdated": "2026-10-01T11:39:12.893Z"
+  },
+  "trailofbits": {
+    "source": {
+      "source": "github",
+      "repo": "trailofbits/skills"
+    },
+    "installLocation": "C:\\Users\\fadhm\\.claude\\plugins\\marketplaces\\trailofbits",
+    "lastUpdated": "2026-10-11T21:15:21.552Z"
+  },
+  "yeswehack": {
+    "source": {
+      "source": "github",
+      "repo": "yeswehack/claude-kit"
+    },
+    "installLocation": "C:\\Users\\fadhm\\.claude\\plugins\\marketplaces\\yeswehack",
+    "lastUpdated": "2026-10-12T08:09:26.423Z"
+  },
+  "claude-code-plugins": {
+    "source": {
+      "source": "github",
+      "repo": "anthropics/claude-code"
+    },
+    "installLocation": "C:\\Users\\fadhm\\.claude\\plugins\\marketplaces\\claude-code-plugins",
+    "lastUpdated": "2026-10-17T20:26:11.055Z"
+  }
+}
