@@ -22,6 +22,24 @@ muted for the first seconds, often at 1.5x. Every line has to earn the next one.
 | 1:35–1:50 | Why it matters | Product proof (tx, dashboard, live data) or stat card | What is real. Sponsor tech, named once, plainly. |
 | 1:50–2:00 | Close | End card (name, URL, credit) | Name, link, one line to remember. |
 
+## The story spine (the gate checks it)
+
+Tag every scene with its `beat`. Beats only move forward. `node story.mjs <demo>` prints this outline with
+the word share of each beat; aim for roughly hook 8%, problem 15%, solution 8%, demo 50%, proof 12%, close 7%.
+
+- **Problem statement:** *who* is stuck, *in what moment*, *what it costs them*. On screen as two lines of
+  10 words or fewer: the situation, then the pain. "One friend pays." / "Then chases everyone for a week."
+  Show the old way (`image`) when it exists: a messy group chat, a spreadsheet, a queue.
+- **Solution statement:** "*Name* lets *who* do *what*, *without the pain*." One sentence, 20 words max, the
+  name in it. The solution card repeats it on screen with up to three short "how" points that become the
+  three demo beats, in the same order and the same words.
+- **Demo beats:** each one is *do -> see -> care*. The voice says the action as the cursor does it, the
+  result appears on the word that names it, and the last sentence says why it matters to the person from
+  the problem. The third beat is the signature moment: zoom and `focus` on the result.
+- **Proof:** the one thing that shows it is real (a transaction, a live dashboard, real users), on the
+  live product. Sponsor tech named here, once.
+- **Close:** name, the solution line again in fewer words, the link.
+
 ## Hooks that work in 8 seconds
 
 Lead with the name, then pick one:

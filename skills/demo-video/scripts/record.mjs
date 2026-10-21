@@ -7,6 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { launch, newPage, sleep } from './lib/cdp.mjs';
+import { CHAPTERS } from './lib/story.mjs';
 import { demoDir, ffmpeg, loadPlan, loadTimeline, saveTimeline } from './lib/util.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,17 @@ await app.send('Page.addScriptToEvaluateOnNewDocument', { source: director });
 // Headless Chrome reports prefers-color-scheme: dark. Pin the scheme the product is meant to be seen in.
 if (plan.colorScheme) await app.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: plan.colorScheme }, { name: 'prefers-reduced-motion', value: 'no-preference' }] });
 let cursorPos = null;
+const chipTheme = { fg: theme.fg, bg: theme.surface };
+// The chapter label shows on the first scene of each new beat (problem, solution, demo, proof) unless the
+// scene sets its own `chapter` text or false, or the plan sets "chapters": false.
+let prevBeat = null;
+function chapterFor(s) {
+  const changed = s.beat && s.beat !== prevBeat;
+  prevBeat = s.beat || prevBeat;
+  if (plan.chapters === false || s.chapter === false) return null;
+  if (typeof s.chapter === 'string') return s.chapter;
+  return changed ? CHAPTERS[s.beat] || null : null;
+}
 
 // ---------- capture ----------
 async function capture(page, id, seconds, body) {
@@ -193,6 +205,13 @@ async function act(a, scene) {
       break;
     }
     case 'spotlight': await app.eval(`__demo.spotlight(${JSON.stringify(spec || {})}, ${!a.off})`); break;
+    case 'focus': {
+      if (a.off) { await app.eval('__demo.focus(null, false)'); break; }
+      await need();
+      await app.eval(`__demo.focus(${JSON.stringify(spec)}, true)`);
+      break;
+    }
+    case 'chapter': await app.eval(`__demo.chip(${JSON.stringify(a.text || '')}, ${a.ms ?? 2800}, ${JSON.stringify(chipTheme)})`); break;
     case 'cursor': await app.eval(`__demo.hideCursor(${!!a.hide})`); break;
     case 'eval': await app.eval(a.js); break;
     default: throw new Error(`scene ${scene.id}: unknown action "${a.do}"`);
@@ -227,6 +246,7 @@ async function resetZoom() {
 // ---------- run ----------
 const failures = [];
 for (const s of plan.scenes) {
+  const chapter = chapterFor(s); // before --only, so beat changes are tracked across skipped scenes
   if (only && !only.has(s.id)) continue;
   const entry = tl.scenes[s.id];
   const v = s.visual || { type: 'card', template: 'statement', lines: [s.vo] };
@@ -238,6 +258,8 @@ for (const s of plan.scenes) {
     if (v.type === 'card') {
       await card.goto(cardUrl);
       const data = { ...v, theme: { ...theme, ...(v.theme || {}) } };
+      // On a card the chapter is the kicker, unless the card already has one.
+      if (chapter && data.kicker == null && data.template !== 'title' && data.template !== 'end') data.kicker = chapter;
       if (data.image) data.image = pathToFileURL(path.resolve(dir, data.image)).href;
       await card.eval(`render(${JSON.stringify(data)})`);
       await sleep(250);
@@ -250,8 +272,10 @@ for (const s of plan.scenes) {
       if (v.url) { await app.goto(new URL(v.url, plan.url).href); await restoreCursor(); }
       for (const a of v.prep || []) await act(a, s);
       await app.eval(`__demo.hideCursor(${v.cursor === false})`).catch(() => {});
+      await app.eval('__demo.focus(null, false); __demo.chip("")').catch(() => {});
       await sleep(v.settle ?? 400);
       res = await capture(app, s.id, entry.target, async (elapsed) => {
+        if (chapter) await app.eval(`__demo.chip(${JSON.stringify(chapter)}, 2800, ${JSON.stringify(chipTheme)})`).catch(() => {});
         for (const a of v.actions || []) {
           const at = startTime(a, entry);
           if (at != null && elapsed() < at) await sleep((at - elapsed()) * 1000);

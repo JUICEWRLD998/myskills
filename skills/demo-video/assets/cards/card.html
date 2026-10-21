@@ -23,7 +23,10 @@
   body.go::before { opacity: 1; transform: translate3d(-2%, 1%, 0) scale(1.04); }
   .stage { position: relative; width: 100%; height: 100%; padding: 96px 112px; display: flex; align-items: center; gap: 72px; }
   .copy { flex: 1 1 0; min-width: 0; }
-  .kicker { font-size: 20px; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 26px; }
+  /* Sentence case with an accent dot: tracked all-caps eyebrows are a generated-look tell. */
+  .kicker { display: inline-flex; align-items: center; gap: 12px; font-size: 24px; letter-spacing: .005em; color: var(--muted); font-weight: 600; margin-bottom: 26px; }
+  .kicker::before { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+  .center .kicker { justify-content: center; }
   .name { font-family: var(--display); font-size: 132px; line-height: .95; letter-spacing: -.035em; font-weight: 750; }
   .tagline { font-size: 38px; line-height: 1.25; color: var(--muted); margin-top: 30px; max-width: 18ch; text-wrap: balance; }
   .lines { font-family: var(--display); font-size: 68px; line-height: 1.12; letter-spacing: -.025em; font-weight: 700; text-wrap: balance; }
@@ -49,6 +52,13 @@
   .shot img { display: block; width: 100%; height: auto; }
   body.go .shot { transform: none; opacity: 1; animation: drift 12s linear 1.8s forwards; }
   @keyframes drift { to { transform: translate3d(-6px, -10px, 0) scale(1.025); } }
+  /* Solution card: the name, one sentence, up to three short "how" points, and the product big. */
+  .solution .name { font-size: 92px; }
+  .solution .one { font-family: var(--display); font-size: 46px; line-height: 1.16; letter-spacing: -.02em; font-weight: 650; margin-top: 22px; max-width: 17ch; text-wrap: balance; }
+  .points { list-style: none; margin-top: 34px; display: grid; gap: 14px; }
+  .points li { display: flex; align-items: baseline; gap: 14px; font-size: 28px; color: var(--muted); }
+  .points li::before { content: ""; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); transform: translateY(-4px); }
+  .solution .shot { width: 760px; transform: translate3d(60px, 0, 0) scale(.92); }
   .center .stage { justify-content: center; text-align: center; }
   .center .tagline, .center .sub { margin-left: auto; margin-right: auto; }
 
@@ -122,6 +132,18 @@
           <div class="stat" id="stat" data-to="${esc(d.value)}">${esc(d.value)}</div>
           <p class="sub fade" style="--d:.5s">${esc(d.caption || '')}</p>
           ${d.source ? `<p class="credit fade" style="--d:.9s">${esc(d.source)}</p>` : ''}
+        </div>${shot}`;
+    } else if (d.template === 'solution') {
+      document.body.classList.add('solution');
+      const one = d.line || d.tagline || '';
+      const at = .45 + count(d.name) * .08;
+      const pts = (d.points || []).slice(0, 3);
+      const after = at + count(one) * .05 + .35;
+      html = `<div class="copy">
+          ${d.kicker ? `<div class="kicker fade" style="--d:0s">${esc(d.kicker)}</div>` : ''}
+          <h1 class="name">${words(d.name, .1, .08)}</h1>
+          ${one ? `<p class="one">${words(one, at, .05)}</p>` : ''}
+          ${pts.length ? `<ul class="points">${pts.map((p, i) => `<li class="fade" style="--d:${(after + i * .35).toFixed(2)}s">${esc(p)}</li>`).join('')}</ul>` : ''}
         </div>${shot}`;
     } else if (d.template === 'end') {
       document.body.classList.add('center');

@@ -1,17 +1,24 @@
 #!/usr/bin/env node
 // Step 1 of the pipeline: synthesise the voice-over per scene and fix the timeline.
-// usage: node tts.mjs [demoDir] [--force]
+// usage: node tts.mjs [demoDir] [--force] [--skip-story]
 // Provider: plan.voice.provider = "edge" (default, free) | "elevenlabs" (needs ELEVENLABS_API_KEY).
 // Writes build/audio/<id>.mp3 + <id>.words.json and timeline.json { voDur, lead, target }.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { edgeSpeak } from './lib/edge-tts.mjs';
+import { checkStory, printStory } from './lib/story.mjs';
 import { demoDir, duration, loadPlan, loadTimeline, readJSON, saveTimeline, wordCount, writeJSON } from './lib/util.mjs';
 
-const dir = demoDir(process.argv[2]);
+const dir = demoDir(process.argv.slice(2).find((a) => !a.startsWith('--')));
 const force = process.argv.includes('--force');
 const plan = loadPlan(dir);
+// Voice costs time; a plan that does not tell the story gets fixed first.
+if (!process.argv.includes('--skip-story')) {
+  const story = checkStory(plan);
+  printStory(story);
+  if (story.fails.length) { console.log('\nfix the story in plan.json first (or pass --skip-story to voice it anyway)'); process.exit(1); }
+}
 const voice = {
   provider: process.env.ELEVENLABS_API_KEY ? 'elevenlabs' : 'edge',
   edgeVoice: 'en-US-AvaMultilingualNeural', rate: '-4%', pitch: '+0Hz',

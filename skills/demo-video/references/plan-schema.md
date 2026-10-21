@@ -19,6 +19,7 @@ One file drives voice, recording and the edit. Re-running any step reads it fres
   "transitionStyle": "fade",                   // any ffmpeg xfade name; per scene: "transition"
   "captions": true,
   "captionStyle": { "font": "Segoe UI Semibold", "size": 46 },
+  "chapters": true,                            // chapter label on the first scene of each new beat; false hides them
   "music": "assets/music.mp3",                 // optional; false disables the skill library
   "musicVolume": 0.16,
   "thumbnailAt": 2.6,
@@ -31,6 +32,9 @@ One file drives voice, recording and the edit. Re-running any step reads it fres
 ```jsonc
 {
   "id": "s05-split",            // unique, used for file names
+  "beat": "demo",               // required: hook | problem | solution | demo | proof | close, in that order
+  "chapter": "Live demo",       // optional: override the chapter label, or false to hide it on this scene
+  "signature": true,            // optional: marks THE moment the video is remembered by (one per video)
   "vo": "Hit send. Everyone gets their exact share.",   // spoken + captioned
   "say": "Hit send. Everyone gets their exact share.",  // optional: spoken text if pronunciation needs help
   "rate": "-8%",                // optional per-scene speaking rate
@@ -54,12 +58,18 @@ Scene length = lead + voice + tail + hold, or longer if the actions run long (ve
   "lines": ["One friend pays.", { "text": "Then *chases* everyone for a week.", "dim": false }],
   "sub": "optional smaller line", "center": false, "image": "scout/old-way.png" }
 
+{ "type": "card", "template": "solution", "name": "Splitly",
+  "line": "One link. Everyone pays their *exact* share.",
+  "points": ["Snap the receipt", "Tap who had what", "Watch it settle"],   // up to 3, short
+  "image": "scout/home.png" }
+
 { "type": "card", "template": "stat", "value": "73%", "caption": "of shared bills are settled late", "source": "Source: X survey, 2025" }
 
 { "type": "card", "template": "end", "name": "Splitly", "tagline": "Settle up before the bill arrives",
   "url": "splitly.app", "credit": "Built for ETHGlobal 2026 · Mustapha Fadhlullah" }
 ```
 
+On problem, solution and proof cards with no `kicker`, the chapter label becomes the kicker (sentence case).
 `*word*` paints a word in the accent colour. `image` paths are relative to the demo folder. Stat values count up
 from zero, keeping a prefix or suffix (`$4.2M`, `73%`, `4 days`). Only use a stat that has a source.
 
@@ -95,6 +105,8 @@ fixed second of the scene.
 | `zoom` | target, `scale` (1.5), `ms` (900) | Native pinch zoom on the target, crisp |
 | `unzoom` | `ms` (800) | Back to 1x. Do this before the next click |
 | `spotlight` | target, or `"off": true` | Accent outline around an element |
+| `focus` | target, or `"off": true` | Dims the rest of the page and outlines the target; glides if moved to another target. Use on the signature result, on the word that names it |
+| `chapter` | `text`, `ms` (2800) | Shows a chapter label mid-scene (the first scene of a beat gets one automatically) |
 | `wait` | `ms` | Pause |
 | `waitFor` | target or `js`, `timeout` | Wait for an element or a JS condition |
 | `goto` | `url` | Navigate mid-scene (avoid: loading shows on camera) |
