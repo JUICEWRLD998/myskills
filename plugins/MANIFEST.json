@@ -53,5 +53,50 @@
     "plugin": "frontend-design@claude-code-plugins",
     "version": "1.1.0",
     "sha": "c017428c8c27e604840435048d5bce6a9a22c040"
+  },
+  {
+    "plugin": "insecure-defaults@trailofbits",
+    "version": "2.0.3",
+    "sha": "a3131740a39291e42fd15b9eac07e0b393ad71b1"
+  },
+  {
+    "plugin": "sharp-edges@trailofbits",
+    "version": "1.1.3",
+    "sha": "a3131740a39291e42fd15b9eac07e0b393ad71b1"
+  },
+  {
+    "plugin": "static-analysis@trailofbits",
+    "version": "1.5.0",
+    "sha": "a3131740a39291e42fd15b9eac07e0b393ad71b1"
+  },
+  {
+    "plugin": "semgrep-rule-creator@trailofbits",
+    "version": "1.2.6",
+    "sha": "a3131740a39291e42fd15b9eac07e0b393ad71b1"
+  },
+  {
+    "plugin": "spec-to-code-compliance@trailofbits",
+    "version": "2.0.2",
+    "sha": "a3131740a39291e42fd15b9eac07e0b393ad71b1"
+  },
+  {
+    "plugin": "supply-chain-risk-auditor@trailofbits",
+    "version": "2.0.4",
+    "sha": "a3131740a39291e42fd15b9eac07e0b393ad71b1"
+  },
+  {
+    "plugin": "dimensional-analysis@trailofbits",
+    "version": "3.1.0",
+    "sha": "a3131740a39291e42fd15b9eac07e0b393ad71b1"
+  },
+  {
+    "plugin": "vulnerability-triage-brocards@trailofbits",
+    "version": "0.1.3",
+    "sha": "a3131740a39291e42fd15b9eac07e0b393ad71b1"
+  },
+  {
+    "plugin": "ywh@yeswehack",
+    "version": "1.0.0",
+    "sha": "3928c3475bae5211835d05190d17fa1c445dd6f7"
   }
 ]

@@ -7,6 +7,11 @@ Snapshot of the skills and plugins used with Claude Code, taken 2026-10-20.
 - `plugins/MANIFEST.json`: plugin, version and git commit of each copy.
 - `plugins/known_marketplaces.json`: marketplaces to re-add.
 
+Added 2026-10-21 from upstream (pinned in `MANIFEST.json`, not from a local install):
+
+- Trail of Bits: `insecure-defaults`, `sharp-edges`, `static-analysis`, `semgrep-rule-creator`, `spec-to-code-compliance`, `supply-chain-risk-auditor`, `dimensional-analysis`, `vulnerability-triage-brocards`.
+- YesWeHack: `ywh` (bug bounty report writing and triage).
+
 ## Restore
 
 Skills:
