@@ -341,6 +341,8 @@ const PROBE = String.raw`(() => {
       cols: cs.gridTemplateColumns,
       gap: parseFloat(cs.rowGap) || parseFloat(cs.gap) || 0,
       pos: cs.position,
+      tt: cs.textTransform,
+      ls: parseFloat(cs.letterSpacing) || 0,
     }
     el.push(o)
     nodes.push(node)
@@ -752,6 +754,44 @@ const PROBE = String.raw`(() => {
   const emojiRe = /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{1F000}-\u{1F2FF}\u{2B00}-\u{2BFF}]/u
   const emojis = el.filter(o => o.txt.length < 8 && emojiRe.test(o.txt))
   if (emojis.length) addTell('emoji-feature-icon', 'major', emojis.length + ' emoji element(s): ' + emojis.slice(0, 4).map(e => e.txt).join(' '))
+  // ---- template chrome (frontend-design's fifth default cluster). Each is fine once, on purpose; the
+  //      tell is the habit, so every check counts repeats and none is an auto-fail.
+  const capsLabels = el.filter(o => o.txt && o.txt.length >= 3 && o.txt.length < 40 && o.size <= 15 && o.tt === 'uppercase' && o.ls >= o.size * 0.06)
+  if (capsLabels.length >= 3) addTell('allcaps-eyebrows', 'major', capsLabels.length + ' tracked ALL-CAPS label(s): ' + capsLabels.slice(0, 3).map(o => o.txt).join(' | '))
+  const middots = el.filter(o => o.txt && (o.txt.match(/\s\u00b7\s/g) || []).length >= 1 && o.txt.length < 90)
+  if (middots.length >= 3) addTell('middot-meta-strings', 'minor', middots.length + ' "A \u00b7 B" meta string(s): ' + middots.slice(0, 2).map(o => o.txt).join(' | '))
+  const arrows = stateChannels.filter(c => /[\u2192\u2197\u203a\u00bb]\s*$/.test(c.txt || ''))
+  if (arrows.length >= 2) addTell('arrow-suffix-cta', 'minor', arrows.length + ' control label(s) end in an arrow: ' + arrows.slice(0, 3).map(c => c.txt).join(' | '))
+  const numbered = el.filter(o => /^0[1-9][.)]?$/.test(o.txt))
+  if (numbered.length >= 3) addTell('numbered-markers', 'minor', numbered.length + ' 01/02/03 marker(s): keep them only if the content is a real sequence')
+  const monoRe = /mono|courier|consolas|menlo|code/i
+  const monoLabels = el.filter(o => o.txt && o.txt.length >= 2 && o.size <= 13 && monoRe.test(o.family))
+  if (monoLabels.length >= 4 && !monoRe.test(displayFamily || '')) addTell('mono-label-chrome', 'minor', monoLabels.length + ' small monospace label(s) on a non-mono page')
+  // a heading that paints one word or phrase differently from the rest (colour, italic or gradient)
+  let accentHeads = 0, accentEg = ''
+  for (const h of A(document.querySelectorAll('h1, h2'))) {
+    if (isCtl(h)) continue
+    const hcs = getComputedStyle(h), hfg = parseColor(hcs.color)
+    const words = (h.textContent || '').trim().split(/\s+/).filter(Boolean).length
+    for (const c of A(h.querySelectorAll('em, i, strong, b, span, mark'))) {
+      const t = (c.textContent || '').trim()
+      const n = t.split(/\s+/).filter(Boolean).length
+      if (!t || n > 3 || n * 2 > words) continue
+      const ccs = getComputedStyle(c), cfg = parseColor(ccs.color)
+      const recolored = cfg && hfg && chanDist(cfg, hfg) > 0.08
+      const italic = ccs.fontStyle === 'italic' && hcs.fontStyle !== 'italic'
+      const clipped = /text/.test(ccs.webkitBackgroundClip || ccs.backgroundClip || '')
+      if (recolored || italic || clipped) { accentHeads++; accentEg = accentEg || (h.textContent || '').trim().slice(0, 60); break }
+    }
+  }
+  if (accentHeads) addTell('one-word-accent-headline', 'major', accentHeads + ' heading(s) accent a single word or phrase: "' + accentEg + '"')
+  // the two default palettes (frontend-design clusters 1 and 2), measured on the rendered ground + accent
+  const creamGround = ground.r >= 236 && ground.g >= 228 && ground.b >= 212 && ground.r - ground.b >= 8 && ground.r - ground.b <= 40
+  if (creamGround && accent && accent.hue >= 8 && accent.hue <= 36 && accent.chroma > 0.35)
+    addTell('cream-clay-default', 'major', 'cream ground with a terracotta/clay accent (hue ' + Math.round(accent.hue) + ') is the default warm look')
+  const nearBlack = Math.max(ground.r, ground.g, ground.b) <= 26
+  if (nearBlack && accent && accent.chroma > 0.6 && ((accent.hue >= 60 && accent.hue <= 150) || accent.hue <= 20 || accent.hue >= 345))
+    addTell('acid-on-black', 'major', 'near-black ground with one acid/vermilion accent (hue ' + Math.round(accent.hue) + ') is the default dark look')
   if (source.transitionAll) addTell('transition-all', 'major', 'transition: all in the CSS')
   if (source.hoverScale) addTell('universal-hover-scale', 'major', 'a hover scale on unrelated elements')
   if (source.bouncyEasing) addTell('bouncy-easing', 'major', 'an overshoot cubic-bezier on UI state')

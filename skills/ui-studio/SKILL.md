@@ -1,6 +1,6 @@
 ---
 name: ui-studio
-description: The one UI pipeline, built from many skills, not one. Grounds the design in the product's subject (frontend-design), explores three real directions before committing (prototype, variant), takes structure and the slop review from the `frontend-design` plugin (Hallmark retired 2026-10-17), builds to the craft bar of emil-design-eng and make-interfaces-feel-better on the house stack, choreographs one signature moment (animate, review-animations), stress-tests every core component (break), traces the journey (click-path-audit), reviews every key screen (better-interface, design-system audit), then verifies the RENDERED page in a real browser with a scorer that plants its own controls. Use for any new page, app screen, redesign or full UI rebuild.
+description: The one UI pipeline, built from many skills, not one. Grounds the design in the product's subject (frontend-design), explores three real directions before committing (prototype, variant), takes structure and the slop review from the `frontend-design` plugin (Hallmark retired 2026-10-17), builds to the craft bar of emil-design-eng and make-interfaces-feel-better on the house stack, choreographs one signature moment (animate, review-animations), stress-tests every core component (break), traces the journey (click-path-audit), reviews every key screen (better-interface, design-system audit), then verifies the RENDERED page in a real browser with a scorer that plants its own controls. Use for any new page, app screen, redesign or full UI rebuild, and run its quick anti-slop pass on any smaller UI change (a component, a section, a restyle, "make it look better").
 ---
 
 # UI Studio
@@ -16,7 +16,29 @@ button whose handler undoes itself. Each phase now has a named owner, named spec
 an exit gate.
 
 **Kickoff:** paste `references/starter-prompt.md`. **Who does what:** `references/toolbox.md`.
+**What reads as generated:** `references/slop-tells.md` (one page, each tell with its fix and its `ui-score` id).
 No subagents unless he says so.
+
+## Quick pass (any UI change too small for the full pipeline)
+
+Slop gets in through the small jobs: a new section, one component, a restyle, a "make it look better". Those
+never run the eight phases, so they run this instead. It takes minutes, and none of its steps is optional.
+
+1. **Name the subject and the one job of the screen** in one line each. Pick type, colour and the one bold
+   element from the subject's world, not from "modern SaaS".
+2. **Read `references/slop-tells.md` before writing code.** For any tell you are about to use on purpose,
+   write the reason in a code comment.
+3. **Build to the craft bar:** every control has hover, focus-visible, active and disabled states; numbers
+   that change are tabular; headings balance; motion is transform/opacity, ≤ 250 ms, with a reduced-motion
+   path.
+4. **Render it and look.** Screenshot at 1280 and 375 and read both. Run
+   `node <this skill>/scripts/ui-score.mjs <url|dir> --round 1 --out <tmp>`. Zero auto-fail tells. Fix every
+   `major` tell from the template-chrome and palette groups, or name why it stays.
+5. **Five-second test** (bottom of `slop-tells.md`) on the first viewport. Then report what changed, the
+   score and any tell you kept on purpose.
+
+Escalate to the full pipeline below when the change touches a key route's hierarchy, adds a new screen, or
+the quick pass finds more than three tells.
 
 **Invoking the skills.** Some skills are user-invoke only (`prototype`, `variant`, `break`, `interface-review`,
 `review-animations`, `pick-ui-library`, `explain-interface`): the Skill tool will not load them. Read their
@@ -41,7 +63,7 @@ memory; if a skill is missing, say so and give the install line.
 - Write the plan before code: 4–6 named colours, type roles, an ASCII wireframe per key screen, 3 principles.
   Run the frontend-design review: any line you would produce for any similar brief (cream + serif + terracotta;
   near-black + one acid accent; broadsheet hairlines; the SaaS card kit; eyebrow / middot / mono-label / arrow
-  chrome) gets revised, with the reason stated.
+  chrome) gets revised, with the reason stated. Check the plan row by row against `references/slop-tells.md`.
 - Cross-check with `ecc:frontend-design-direction`: for an app, the first screen is the usable product, not a
   marketing page; name the ONE memorable detail.
 - Write the **hierarchy contract** for each key screen's first viewport: where am I, what matters most, what
@@ -149,7 +171,7 @@ A gate you ran in your head did not run.
    Click the primary journey by visible text. READ the screenshots.
 3. **Machine score:** `node <this skill>/scripts/ui-score.mjs <url> --round N --label <l> --out <dir>`. Exit 2 =
    a planted control failed; the score is withheld and never reported.
-4. **frontend-design slop review**: run its default-cluster review against the rendered page (screenshots, not source): fonts, palette, layout, card kit, chrome tells. Each hit fixed or named.
+4. **frontend-design slop review**: run its default-cluster review against the rendered page (screenshots, not source): fonts, palette, layout, card kit, chrome tells. Each hit fixed or named. `ui-score` measures most of them now (`allcaps-eyebrows`, `middot-meta-strings`, `arrow-suffix-cta`, `numbered-markers`, `mono-label-chrome`, `one-word-accent-headline`, `cream-clay-default`, `acid-on-black`); the eye-only rows in `slop-tells.md` are checked on the screenshots.
 5. **Stress every core component with `break`**: each component on the wow screen and the primary journey,
    rendered under its real worst cases (long text, empty, huge numbers, many items, slow network, error). Fix
    every visible break.
@@ -205,6 +227,12 @@ If something could not be seen, say it was not verified.
 
 ## Pitfalls
 
+- `innerText` applies CSS `text-transform`: an uppercase kicker reads back as "BUILDER FEE" and a text probe for
+  "Builder fee" fails while the page is fine. Read page text with `textContent` and assert on what the DOM says.
+- A replay that reveals items one by one shows the empty state in between. If the empty state is a sentence ("No one has
+  taken this call yet"), it is false mid-replay. Drive empty-state copy from the real total, not from what is visible.
+- `[class*="chip"]` also matches the list `.chips`. Scope count probes to the element (`li[class*="chip"]`).
+
 - **One skill only** (2026-10-04, Hallmark retired 2026-10-17). One skill's checklist is one set of blind spots. Run the specialists in the table; never a stock theme.
 - **Committing to the first direction.** It is the modal one. Explore three before structure.
 - **Cloning a reference's grammar** instead of learning why it reads well. Derive from the subject.
@@ -222,3 +250,8 @@ If something could not be seen, say it was not verified.
 - **Headless Chrome profiles fill the disk** (~60-70 MB each in `%TEMP%`; `ENOSPC` mid-write on 2026-10-01). Delete
   the profile on exit, write filmstrip frames as JPEG, check free space before a long verify pass.
 - **The user-invoke-only skills look missing to the Skill tool.** They are installed; read their SKILL.md.
+- **Chrome as root needs `--no-sandbox`** (Linux containers and CI). `ui-score.mjs` reads `CHROME_PATH`; point it at
+  a two-line wrapper script that runs `chrome --no-sandbox "$@"`. Without it the scorer exits with "Chrome did
+  not expose a devtools endpoint".
+- **Fixtures:** `scripts/fixtures/slop` must fire the auto-fail tells, `chrome` must fire every template-chrome
+  and palette tell, and `clean` must fire none. Re-run all three after any change to the scorer.
