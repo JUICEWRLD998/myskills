@@ -1,6 +1,6 @@
 ---
 name: demo-video
-description: Make a finished hackathon demo video from a deployed link. Use when he says "make the demo", "demo video", or drops a deployed URL for the product in the current folder. Reads the codebase first, then writes a 120-second script as a senior SaaS product marketer, voices it with a natural female narrator, records the live product with a presenter cursor and zooms, cuts it with transitions, captions and loudness, verifies the result, and hands back a 1080p MP4. No stops unless the product blocks the recording.
+description: Make a finished hackathon demo video from a deployed link. Use when he says "make the demo", "demo video", or drops a deployed URL for the product in the current folder. Reads the codebase first, then writes a 120-second script as a senior SaaS product marketer, voices it with a natural female narrator, records the live product with a presenter cursor and zooms, cuts it with transitions, captions and loudness, verifies the result, and hands back a 1080p MP4. Every cut tells one story in order (hook, problem, solution, live demo, proof, close): a short pitch-deck act whose slides reveal each point as the narrator says it, then the live product, checked by a story gate before any voice is made. No stops unless the product blocks the recording.
 ---
 
 # Demo video
@@ -16,8 +16,13 @@ that is this skill. He does not review drafts. He watches the final MP4.
 >
 > - **0:00–0:08, the hook.** The product name and a one-line description, on screen and spoken in the first
 >   3 seconds, then one sentence that makes the viewer want the next 112.
-> - **The problem.** One real person in one concrete moment. A number only when it is sourced.
-> - **The solution.** What the product is, in one plain sentence.
+> - **The problem, as a pitch deck.** One real person in one concrete moment. Put it on screen as slides, not
+>   only in the voice: a problem slide (the pain in one headline and up to three pieces of evidence, each
+>   number with its source), a real quote if one exists, and a before/after slide that shows the old way's
+>   steps being struck out. Every point appears on the word that says it. A number only when it is sourced.
+> - **The solution.** What the product is, in one plain sentence that names it, then how it works as a flow
+>   slide (three or four steps lighting up along a line as the voice reaches each one), or a solution card,
+>   or the product itself. The flow's steps become the demo beats, in the same order and words.
 > - **The demo.** The live product doing the job: three beats, each an action, its visible result, and why
 >   that matters. The product's signature moment is shown big (zoomed) and lands on the word that names it.
 > - **Why it matters.** What is real (live, onchain, used by someone). Name the sponsor technology once, in plain words.
@@ -37,7 +42,9 @@ Scripts live in `scripts/` (Node 22+, ffmpeg, Chrome; one npm dependency, `ws`).
 | 0 Preflight | `node -v`, `ffmpeg -version`, Chrome present, `npm i` in `scripts/` if `node_modules` is missing | Bash |
 | 1 Understand | Read README, package.json, routes/pages, main components, contracts, any SUBMISSION/PITCH/hackathon brief, `.env.example`. Write `demo/BRIEF.md`: name, one-liner, user, problem, how it works, signature moment, 3 demo beats, what is real, sponsor tech, the event's video rules. Facts from the code only; mark anything guessed UNVERIFIED | Read, Grep |
 | 2 Scout | `node scout.mjs <url> <product>/demo/scout /route2 /route3` then **look at every screenshot**. Note the exact button labels for the actions, the theme colours and fonts for the cards, and what fails live | Bash, Read the PNGs |
-| 3 Script | Write `demo/script.md` (timed table: time, voice-over, picture) and `demo/plan.json`. Follow `references/script-craft.md`, then run the `humanizer` skill over the voice-over lines. Schema: `references/plan-schema.md` | Write |
+| 3 Script | Write `demo/script.md` (timed table: time, voice-over, picture) and `demo/plan.json`, every scene tagged with its `beat`. Follow `references/script-craft.md`, then run the `humanizer` skill over the voice-over lines. Schema: `references/plan-schema.md`; a complete plan: `references/example-plan.json` | Write |
+| 3a Deck | For the deck act, choose 3 to 5 slides from `problem`, `quote`, `compare`, `flow` (and `statement`, `stat`, `solution`). Give every point an `onWord` so it lands as the narrator says it. Set `"deck": true` for the chapter rail and progress line. Read `references/script-craft.md` "The deck act" | Write |
+| 3b Story gate | `node story.mjs <demo>`. Prints the story outline (words and share per beat). Fix every FAIL; fix every WARN or say why it stays. `tts.mjs` runs the same gate and refuses a plan that fails | Bash |
 | 4 Voice | `node tts.mjs <demo>`. Exit 3 means over time: cut words, never speed up the voice | Bash |
 | 5 Record | `node record.mjs <demo>`. A scene that fails writes `build/debug/<id>.png`: Read it, fix the action, re-run. `--only=id` re-records cards; page scenes depend on earlier state, so re-run from the first page scene | Bash |
 | 6 Edit | `node assemble.mjs <demo>` | Bash |
@@ -47,10 +54,22 @@ Scripts live in `scripts/` (Node 22+, ffmpeg, Chrome; one npm dependency, `ws`).
 ## What "clean and presentable" means here (the bar)
 
 - First 8 seconds: name spoken and on screen, tagline visible. `verify.mjs` fails the cut otherwise.
+- **The story reads with the sound off.** The problem is on screen as a statement, the solution as one
+  sentence, and a chapter label ("The problem", "The solution", "Live demo", "What's real") marks each
+  new beat. Scrub the contact sheet: someone who sees only the stills can say what was broken and what fixes it.
+- **The deck act is a real deck.** 3 to 5 slides, at most 40% of the words. One idea per slide, a headline of
+  12 words or fewer, every point revealed on its spoken word (`onWord`), the chapter rail and progress line on
+  (`"deck": true`). Advance between deck slides with `"transition": "smoothleft"`; cross into the live product
+  with a fade. Evidence and quotes carry their source on screen; with no source, there is no number.
+- **Motion grammar.** One idea moves at a time. Cursor glides on an arc and lands on the spoken word; a zoom
+  pushes in on the result, holds, then pulls out before the next click; `focus` dims the rest of the page so
+  the eye lands on the signature result; cards reveal word by word and never bounce. No spinning, no slides
+  flying in, no shake, no idle loops. Transitions are crossfades; let the picture do the work.
 - Never a static screen longer than 6 seconds while the voice talks (verify warns). Move the cursor, scroll, zoom, or cut words.
 - Every page scene has the presenter cursor doing something the voice-over is describing at that moment. Use
   `onWord` so the click lands on the word.
-- One zoom per demo beat at most. The signature moment gets the biggest one (1.6–1.8x). Unzoom before clicking anything else.
+- One zoom per demo beat at most. The signature moment gets the biggest one (1.6–1.8x), and a `focus` on the
+  result as the voice names it. Unzoom (and `focus` off) before clicking anything else.
 - Cards use the product's theme (`plan.theme` from scout), never the default teal unless the product is teal.
   Statement cards are for the problem only; the demo itself is always the live product.
 - No loading spinners, blank pages or error toasts on camera. Navigation and logins go in `prep`, which is not recorded.
@@ -81,6 +100,11 @@ With no track the cut has voice only; say so in the delivery note.
 - The event's video rules conflict with the brief (for example a 60-second cap or a required face cam).
 
 ## Pitfalls (each one cost time once)
+
+- **A slide that looks fine in one card can break in another.** Before recording, render each new slide at
+  1440x810 and look at a mid-reveal and a final frame. A grid of nodes stretched shorter columns and dropped
+  their labels out of line (`align-content: start` fixed it). An overflow probe that sets `width` on an element
+  with `max-width` never fires: plant the control with `min-width`.
 
 - **Edge TTS moved on 2026-10-10 and the old endpoint answers 403 to every client** (rany2/edge-tts#490, the
   `msedge-tts` and `edge-tts` packages included). Edge 155 now signs `wss://api.msedgeservices.com/tts/...` with a new
@@ -122,13 +146,20 @@ With no track the cut has voice only; say so in the delivery note.
   that covers the product's real latency (measured in scout), and hang the zoom on a word near the end.
 - **Clicks while pinch-zoomed are mapped through `visualViewport` but this was not tested.** Unzoom before you click.
 - **Headless Chrome reports `prefers-color-scheme: dark`.** Set `plan.colorScheme` to the scheme the product is designed for.
+- **Chrome as root needs `--no-sandbox`** (Linux containers). Point `CHROME_PATH` at a wrapper that runs
+  `chrome --no-sandbox "$@"`.
 - **Actions that run past the voice create dead air** (verify warns `dead air`). Shorten the actions, raise
   `cps` on typing, or add `hold` to the scene and words to the voice-over.
 
 ## Files
 
-- `scripts/scout.mjs`, `tts.mjs`, `record.mjs`, `assemble.mjs`, `verify.mjs`: the pipeline, in order.
+- `scripts/scout.mjs`, `story.mjs`, `tts.mjs`, `record.mjs`, `assemble.mjs`, `verify.mjs`: the pipeline, in order.
+- `scripts/lib/story.mjs`: the story gate (beat order, problem on screen, one-sentence solution, live demo with a
+  signature moment, hype words, sentence length, sourced stats).
 - `scripts/lib/`: `cdp.mjs` (Chrome), `director.js` (in-page cursor, ripple, find-by-text, eased scroll,
-  spotlight), `edge-tts.mjs` (voice), `util.mjs`.
-- `assets/cards/card.html`: title, statement, stat and end cards. Word-by-word reveal, themed by `plan.theme`.
+  spotlight, focus cutout, chapter label), `edge-tts.mjs` (voice), `util.mjs`.
+- `assets/cards/card.html`: title, statement, solution, stat, end, and the deck slides problem, compare, flow and
+  quote. Word-by-word reveal, items timed to the voice, chapter rail and progress line, themed by `plan.theme`.
+- `scripts/lib/deck.mjs`: resolves `onWord` on any card item to its time, and the deck progress per scene.
+  `node scripts/test-deck.mjs` checks it and the deck rules of the story gate (planted control first).
 - `references/script-craft.md`: how to write the 120 seconds. `references/plan-schema.md`: every plan field and action.

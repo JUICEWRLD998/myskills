@@ -20,7 +20,18 @@
       #__demo_ring.go{animation:__demo_ripple .55s cubic-bezier(.22,1,.36,1)}
       @keyframes __demo_ripple{0%{opacity:.9;transform:scale(.3)}100%{opacity:0;transform:scale(1.5)}}
       .__demo_spot{outline:3px solid var(--__demo-accent,#3ee0c0)!important;outline-offset:6px!important;
-        transition:outline-offset .4s cubic-bezier(.22,1,.36,1)!important}`;
+        transition:outline-offset .4s cubic-bezier(.22,1,.36,1)!important}
+      #__demo_focus{position:fixed;z-index:2147483645;pointer-events:none;opacity:0;border-radius:12px;
+        box-shadow:0 0 0 200vmax rgba(8,10,12,.58),0 0 0 2px var(--__demo-accent,#3ee0c0);
+        transition:opacity .45s cubic-bezier(.22,1,.36,1),left .6s cubic-bezier(.22,1,.36,1),top .6s cubic-bezier(.22,1,.36,1),width .6s cubic-bezier(.22,1,.36,1),height .6s cubic-bezier(.22,1,.36,1)}
+      #__demo_focus.on{opacity:1}
+      #__demo_chip{position:fixed;left:28px;top:24px;z-index:2147483646;pointer-events:none;display:flex;align-items:center;gap:10px;
+        padding:9px 16px 9px 14px;border-radius:999px;font:600 15px/1.2 system-ui,sans-serif;letter-spacing:.01em;
+        color:var(--__demo-chip-fg,#f3f5f4);background:var(--__demo-chip-bg,rgba(16,20,22,.86));
+        box-shadow:0 8px 24px -10px rgba(0,0,0,.5);opacity:0;transform:translate3d(0,-8px,0);
+        transition:opacity .4s cubic-bezier(.22,1,.36,1),transform .5s cubic-bezier(.22,1,.36,1)}
+      #__demo_chip::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--__demo-accent,#3ee0c0)}
+      #__demo_chip.on{opacity:1;transform:none}`;
     document.documentElement.appendChild(style);
     cursor = document.createElement('div');
     cursor.id = '__demo_cursor';
@@ -128,9 +139,43 @@
     return !!el;
   }
 
+  // Dim everything except one element, so the eye lands on the result the voice is naming.
+  // The cutout is a fixed box with a huge spread shadow; it glides if focus moves to another target.
+  function focus(spec, on = true) {
+    mount();
+    let box = document.getElementById('__demo_focus');
+    if (!on || !spec) { if (box) box.classList.remove('on'); return true; }
+    const el = find(spec);
+    if (!el) return false;
+    if (!box) { box = document.createElement('div'); box.id = '__demo_focus'; document.documentElement.appendChild(box); }
+    const r = el.getBoundingClientRect(), pad = 10;
+    const rad = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+    Object.assign(box.style, { left: r.left - pad + 'px', top: r.top - pad + 'px', width: r.width + pad * 2 + 'px', height: r.height + pad * 2 + 'px', borderRadius: rad + pad + 'px' });
+    void box.offsetWidth;
+    box.classList.add('on');
+    return true;
+  }
+
+  // A small chapter label (top-left, clear of the captions) that tells the viewer where the story is.
+  let chipTimer;
+  function chip(text, ms = 2800, theme = {}) {
+    mount();
+    let el = document.getElementById('__demo_chip');
+    if (!el) { el = document.createElement('div'); el.id = '__demo_chip'; document.documentElement.appendChild(el); }
+    clearTimeout(chipTimer);
+    if (!text) { el.classList.remove('on'); return true; }
+    if (theme.fg) document.documentElement.style.setProperty('--__demo-chip-fg', theme.fg);
+    if (theme.bg) document.documentElement.style.setProperty('--__demo-chip-bg', theme.bg);
+    el.textContent = text;
+    void el.offsetWidth;
+    el.classList.add('on');
+    if (ms > 0) chipTimer = setTimeout(() => el.classList.remove('on'), ms);
+    return true;
+  }
+
   function setAccent(c) { document.documentElement.style.setProperty('--__demo-accent', c); }
   function hideCursor(h = true) { mount(); cursor.style.opacity = h ? '0' : '1'; }
 
-  window.__demo = { find, rect, moveTo, press, scrollTo, spotlight, setAccent, hideCursor, place, mount, get pos() { return pos; } };
+  window.__demo = { find, rect, moveTo, press, scrollTo, spotlight, focus, chip, setAccent, hideCursor, place, mount, get pos() { return pos; } };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount); else mount();
 })();
